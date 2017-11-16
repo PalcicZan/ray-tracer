@@ -286,3 +286,8 @@ __pycache__/
 *.btm.cs
 *.odx.cs
 *.xsd.cs
+/FreeImage.dll
+/glew32.dll
+/SDL2.dll
+/Tmpl2017-02.exe
+/ucrtbased.dll
