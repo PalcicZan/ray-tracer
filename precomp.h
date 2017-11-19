@@ -31,12 +31,13 @@ extern "C"
 #include "surface.h"
 #include "threads.h"
 #include <assert.h>
+#include <math.h>
 
 using namespace std;
 using namespace Tmpl8;
 
-#include "scene.h"
 #include "ray.h"
+#include "scene.h"
 #include "camera.h"
 #include "renderer.h"
 #include "game.h"
