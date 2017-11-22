@@ -9,12 +9,13 @@ public:
 	void Init();
 	void Shutdown();
 	void Tick( float deltaTime );
-	void MouseUp( int button ) { /* implement if you want to detect mouse button presses */ }
-	void MouseDown( int button ) { /* implement if you want to detect mouse button presses */ }
-	void MouseMove( int x, int y ) { /* implement if you want to detect mouse movement */ }
+	void MouseUp(int button) { handleCameraRotation = false; };
+	void MouseDown(int button) { handleCameraRotation = true; };
+	void MouseMove(int x, int y);
 	void KeyUp(int key);
 	void KeyDown(int key);
 private:
+	bool handleCameraRotation;
 	Surface* screen;
 };
 

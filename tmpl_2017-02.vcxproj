@@ -247,6 +247,7 @@
     <ClInclude Include="surface.h" />
     <ClInclude Include="template.h" />
     <ClInclude Include="threads.h" />
+    <ClInclude Include="tiny_oby_loader.h" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="_readme.txt" />

@@ -11,10 +11,9 @@ static int frame = 0;
 void Game::Init()
 {
 	// initialize camera
-	camera.Initialize(vec3(0, 0, 0), vec3(0, 0, -4), 60.0f);
+	camera.Initialize(vec3(0, 0, 0), vec3(0, 0, -1), 90.0f);
 	// initialize custom scene
 	scene.Initialize();
-	scene.SetBackground(vec3(0.529f, 0.808f, 0.980f));
 	// initialize renderer with camera and scene
 	renderer.Initialize(camera, scene);
 }
@@ -45,6 +44,17 @@ void Game::Tick(float deltaTime)
 		}
 	}
 	screen->Print("Whitted ray tracer v0.5", 2, 2, 0xffffffff);
+}
+
+void Game::MouseMove(int x, int y)
+{
+
+	printf("%d %d\n", x, y);
+	if (handleCameraRotation)
+	{
+		camera.LookAt(vec3((float)x*0.5f, 0.5f, (float)y*0.5f));
+		printf("BUTTOM DOWN");
+	}
 }
 
 void Game::KeyUp(int key)

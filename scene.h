@@ -1,32 +1,33 @@
 #pragma once
+#define SIMPLE_SCENE 1
 
 class Material {
 public:
 	static const float refractionIndices[3];
-	enum RefInd {
+	enum RefractionInd {
 		AIR,
 		WATER,
 		GLASS
 	};
-	enum {
+	enum Type {
 		DIFFUSE = 1,
 		MIRROR = 2,
 		DIELECTRICS = 4
 	};
 	Material() {};
-	Material(int type, vec3 color, float reflection, float diffuse) :
-		color(color), type(type), reflection(reflection), diffuse(diffuse)
+	Material(int type, vec3 color, float reflection, float diffuse, float specular, float glossines) :
+		color(color), type(type), reflection(reflection), diffuse(diffuse), specular(specular), glossines(glossines)
 	{
 	};
-	Material(int type, vec3 color, float reflection, float diffuse, RefInd refInd) :
-		color(color), type(type), reflection(reflection), diffuse(diffuse), refraction(refractionIndices[refInd])
+	Material(int type, vec3 color, float reflection, float diffuse, float specular, float glossines, RefractionInd ind) :
+		color(color), type(type), reflection(reflection), diffuse(diffuse), glossines(glossines), specular(specular), refraction(refractionIndices[ind])
 	{
 	};
 	vec3 color;
 	int type;
 	float refraction;
 	float reflection;
-	float diffuse;
+	float diffuse = 0.0f, specular = 0.0f, glossines = 1.0f;
 };
 
 class Primitive {
@@ -77,13 +78,19 @@ private:
 	float D;
 };
 
-class Triangle : Primitive {
+class Triangle : public Primitive {
 public:
 	Triangle() {};
+	Triangle(vec3 v0, vec3 v1, vec3 v2, Material material) :
+		Primitive(v0, material), v0(v0), v1(v1), v2(v2), edge1(v1 - v0), edge2(v2 - v0)
+	{
+		N = cross(edge1, edge2);
+	};
 	int GetType() { return TRIANGLE; };
+	vec3 GetNormal(vec3 &I) { return N; };
+	bool GetIntersection(Ray & ray);
 private:
-	vec3 position;
-	Material material;
+	vec3 position, v0, v1, v2, edge1, edge2, N;
 };
 
 class Scene {

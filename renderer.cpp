@@ -8,22 +8,26 @@ void Renderer::Initialize(Camera &camera, Scene &scene)
 
 void Renderer::Reflect(Ray &ray, vec3 &I, vec3 &N)
 {
-	ray.direction = ray.direction - 2 * (dot(ray.direction, N))*N;
+	ray.direction = normalize(ray.direction - 2 * (dot(ray.direction, N))*N);
 	ray.origin = I;
 	ray.dist = INFINITY;
 }
 
 bool Renderer::Refract(Ray &ray, vec3 &I, vec3 &N, float n1, float n2, float &cosI)
 {
-	cosI = dot(ray.direction, N);
-	cosI = cosI < -1.0f ? -1.0f : cosI;
-	cosI = cosI > 1.0f ? 1.0f : cosI;
-	if (cosI < 0) { cosI = -cosI; }
-	else { std::swap(n1, n2); }//N = -N; }
+	cosI = -dot(ray.direction, N);
+	if (cosI < 0) cosI = -cosI;
+	else
+	{ // swap coefficient if inside
+		float temp = n1;
+		n1 = n2;
+		n2 = temp;
+		N = -N;
+	}
 	float n = n1 / n2;
 	float k = 1 - (n * n) * (1 - cosI * cosI);
 	if (k < 0.0f) return false;
-	ray.direction = n * ray.direction + N * (n * cosI - sqrtf(k));
+	ray.direction = normalize(n * ray.direction + N * (n * cosI - sqrtf(k)));
 	ray.origin = I;
 	ray.dist = INFINITY;
 	return true;
@@ -45,72 +49,116 @@ float Renderer::SchlickApproximation(float n1, float n2, float cosI)
 vec3 Renderer::Trace(Ray ray, int depth)
 {
 	vec3 color = scene.GetBackground();
-	//color.x = Ray::MISS;
 	Primitive *hitPrimitive = scene.GetNearestIntersection(ray);
 	if (hitPrimitive != nullptr)
 	{
 		if (hitPrimitive->isLight)
 			return hitPrimitive->material.color;
-		//color.x = Ray::HIT; // intersection
-		vec3 materialColor, illumination(0.0f), I, N;
+		vec3 illumination(0.0f), I, N;
 		Material material;
 		I = ray.origin + ray.direction * ray.dist;
 		N = hitPrimitive->GetNormal(I);
-		materialColor = hitPrimitive->material.color;
+		//materialColor = hitPrimitive->material.color;
+		// original ray is always reflected
 		switch (hitPrimitive->material.type)
 		{
 		case Material::DIFFUSE:
 		case Material::MIRROR:
 		{
-			//case (Material::DIFFUSE|Material::MIRROR):
+			Reflect(ray, I, N);
 			if (hitPrimitive->material.diffuse)
-				illumination += hitPrimitive->material.diffuse * DirectIllumination(I, N);
+				illumination = DirectAndSpecularIllumination(I, N, ray, hitPrimitive);
+
+			// handling partially reflective materials
 			float specular = 1.0f - hitPrimitive->material.diffuse;
-			if (specular)
+			if (specular > 0.0f)
 			{
-				if (depth++ < maxDepth)
-				{
-					Reflect(ray, I, N);
-					vec3 resultColor = specular * Trace(ray, depth);
-					illumination += resultColor;
-				}
+				if (depth++ > maxDepth)
+					return illumination;
+				illumination += specular * Trace(ray, depth);
 			}
-			materialColor *= illumination;
+
+			//materialColor = illumination;
 			break;
 		}
 		case Material::DIELECTRICS:
 		{
-			if (depth++ < maxDepth)
+			Ray refractRay;
+			refractRay.direction = ray.direction;
+			refractRay.origin = ray.origin;
+			refractRay.dist = ray.dist;
+			Reflect(ray, I, N);
+			if (hitPrimitive->material.diffuse)
+				illumination = DirectAndSpecularIllumination(I, N, ray, hitPrimitive);
+			float fr = 1.0f;
+			float n1 = hitPrimitive->material.refraction;
+			float n2 = Material::refractionIndices[Material::RefractionInd::AIR];
+			float cosI;
+			if (depth++ > maxDepth) return illumination;
+			// refraction and reflection
+			if (Refract(refractRay, I, N, n1, n2, cosI))
 			{
-				Ray refractRay;
-				refractRay.direction = ray.direction;
-				refractRay.origin = ray.origin;
-				refractRay.dist = ray.dist;
-				Reflect(ray, I, N);
-				float fr = 1.0f;
-				//float n1 = (depth & 1) ? hitPrimitive->material.refraction : Material::refractionIndices[Material::RefInd::AIR];
-				//float n2 = (depth & 1) ? Material::refractionIndices[Material::RefInd::AIR] : hitPrimitive->material.refraction;
-				float n1 = hitPrimitive->material.refraction;
-				float n2 = Material::refractionIndices[Material::RefInd::AIR];
-				float cosI;
-				if (Refract(refractRay, I, N, n1, n2, cosI))
-				{
-					fr = SchlickApproximation(n1, n2, cosI);
-					illumination = fr * Trace(ray, depth) + (1.0f - fr) * Trace(refractRay, depth);
-				}
-				else
-				{
-					illumination = Trace(ray, depth);
-				}
+				fr = SchlickApproximation(n1, n2, cosI);
+				illumination += fr * Trace(ray, depth) + (1.0f - fr) * Trace(refractRay, depth);
 			}
-			else { materialColor = color; break; }
-			materialColor *= illumination;
+			else
+			{
+				fr = SchlickApproximation(n1, n2, cosI);
+				illumination += fr * Trace(ray, depth);
+			}
+			//materialColor = illumination;
 			break;
 		}
 		}
-		color = materialColor;
+		color = illumination;
 	}
 	return color;
+}
+
+vec3 Renderer::GetSpecularIllumination(Ray &shadowRay, Ray &reflectedRay, Primitive* light, Primitive* hit)
+{
+	float LR = dot(shadowRay.direction, reflectedRay.direction);
+	if (LR <= 0.0f)
+	{
+		return vec3(0.0f);
+	}
+	float specular = powf(LR, hit->material.glossines);
+	return specular;
+}
+
+vec3 Renderer::DirectAndSpecularIllumination(vec3 I, vec3 N, Ray &ray, Primitive* hitPrimitive)
+{
+	Primitive **lights = scene.GetLights();
+	Primitive *shadowPrimitive;
+	vec3 directColor(0.0f);
+	vec3 specularColor(0.0f);
+	Ray shadowRay;
+	for (int i = 0; i < scene.GetNumberOfLights(); i++)
+	{
+		shadowRay.direction = lights[i]->position - I;
+		float shadowRayDistance = dot(shadowRay.direction, shadowRay.direction);
+		shadowRay.direction = normalize(shadowRay.direction);
+		float LN = dot(shadowRay.direction, N);
+		if (LN > 0.0f)
+		{
+			shadowRay.origin = I;
+			shadowRay.dist = INFINITY;
+			shadowPrimitive = scene.GetNearestIntersection(shadowRay);
+			// check if not in the shadow
+			if (shadowPrimitive == nullptr || shadowPrimitive == lights[i] || (shadowRay.dist * shadowRay.dist) > shadowRayDistance)
+			{
+				vec3 lightContribution = lights[i]->intensity * lights[i]->material.color;
+				// direct contribution
+				if(hitPrimitive->material.diffuse > 0.0f)
+					directColor += lightContribution * LN;
+				// specular contribution
+				if(hitPrimitive->material.specular > 0.0f)
+					specularColor += lightContribution * GetSpecularIllumination(shadowRay, ray, lights[i], hitPrimitive);
+			}
+		}
+	}
+	//return directColor + hitPrimitive->material.specular * specularColor;
+	return hitPrimitive->material.diffuse * hitPrimitive->material.color * directColor + hitPrimitive->material.specular * specularColor;
 }
 
 vec3 Renderer::DirectIllumination(vec3 I, vec3 N)
@@ -122,14 +170,20 @@ vec3 Renderer::DirectIllumination(vec3 I, vec3 N)
 	for (int i = 0; i < scene.GetNumberOfLights(); i++)
 	{
 		shadowRay.direction = lights[i]->position - I;
-		shadowRay.origin = I;
-		shadowRay.dist = INFINITY;
 		float shadowRayDistance = dot(shadowRay.direction, shadowRay.direction);
-		shadowRay.direction.normalize();
-		float LN = max(0.f, dot(shadowRay.direction, N));
-		shadowPrimitive = scene.GetNearestIntersection(shadowRay);
-		if (shadowPrimitive == nullptr || shadowPrimitive == lights[i] || (shadowRay.dist * shadowRay.dist) > shadowRayDistance)
-			color += lights[i]->material.color * lights[i]->intensity * LN;
+		shadowRay.direction = normalize(shadowRay.direction);
+		float LN = dot(shadowRay.direction, N);
+		if (LN > 0.0f)
+		{
+			shadowRay.origin = I;
+			shadowRay.dist = INFINITY;
+			shadowPrimitive = scene.GetNearestIntersection(shadowRay);
+			if (shadowPrimitive == nullptr || shadowPrimitive == lights[i] || (shadowRay.dist * shadowRay.dist) > shadowRayDistance)
+			{
+				// diffuse contribution
+				color += lights[i]->intensity * LN;
+			}
+		}
 	}
 	return color;
 }

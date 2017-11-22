@@ -1,6 +1,7 @@
 #pragma once
 //Tiny OpenGL
 class Camera {
+	static const bool info = true;
 public:
 	enum Direction {
 		UP,
@@ -10,7 +11,7 @@ public:
 		FORWARD,
 		BACKWARD
 	};
-	Camera() {};
+	Camera() : zfar(1.0f), znear(0.0f) {};
 	Camera(vec3 position, vec3 direction, float fov);
 	void Initialize(vec3 position, vec3 direction, float fov);
 	void SetFov(float deg);
@@ -23,10 +24,19 @@ public:
 	// user interface 
 	void Move(Direction dir);
 	void LookAt(vec3 newDirection);
+	void SetTransformationMatrices();
+	vec3 Transform(mat4 transformMatrix, vec3 vec);
 private:
 	vec3 position, direction;
-	float dx, dy, sx, sy, sz;
-	float aspectRatio;
+	// transformation matrices
+	mat4 translation;
+	mat4 rotation;
 	vec3 p0, p1, p2;
+	float zfar = 1.0f;
+	float znear = 0.0f;
+	// interpolation coordinates
+	float dx, dy, sx, sy, sz;
+	// aspect ratio and field of view
+	float aspectRatio;
 	float fov;
 };
