@@ -52,7 +52,7 @@ void Game::MouseMove(int x, int y)
 	printf("%d %d\n", x, y);
 	if (handleCameraRotation)
 	{
-		camera.LookAt(vec3((float)x*0.5f, 0.5f, (float)y*0.5f));
+		camera.LookAt(vec3((float)x*0.5f, 0.0f, (float)y*0.5f));
 		printf("BUTTOM DOWN");
 	}
 }

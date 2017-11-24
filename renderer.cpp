@@ -13,7 +13,7 @@ void Renderer::Reflect(Ray &ray, vec3 &I, vec3 &N)
 	ray.dist = INFINITY;
 }
 
-bool Renderer::Refract(Ray &ray, vec3 &I, vec3 &N, float n1, float n2, float &cosI)
+bool Renderer::Refract(Ray &ray, vec3 &I, vec3 &N, float &n1, float &n2, float &cosI)
 {
 	cosI = -dot(ray.direction, N);
 	if (cosI < 0) cosI = -cosI;
@@ -33,7 +33,7 @@ bool Renderer::Refract(Ray &ray, vec3 &I, vec3 &N, float n1, float n2, float &co
 	return true;
 }
 
-void Renderer::RefractAndReflect(Ray &reflectRay, Ray &refractRay, vec3 &I, vec3 &N, Primitive &primitive, bool inside)
+void Renderer::RefractAndReflect(Ray &reflectRay, Ray &refractedRay, vec3 &I, vec3 &N, Primitive &primitive, bool inside)
 {
 
 }
@@ -46,28 +46,28 @@ float Renderer::SchlickApproximation(float n1, float n2, float cosI)
 	return r0 + (1 - r0)*c*c*c*c*c;
 }
 
-vec3 Renderer::Trace(Ray ray, int depth)
+vec3 Renderer::Trace(Ray& ray, int depth)
 {
 	vec3 color = scene.GetBackground();
 	Primitive *hitPrimitive = scene.GetNearestIntersection(ray);
 	if (hitPrimitive != nullptr)
 	{
-		if (hitPrimitive->isLight)
-			return hitPrimitive->material.color;
+		Ray reflectedRay;
+		reflectedRay.direction = ray.direction;
+		reflectedRay.origin = ray.origin;
+		//if (hitPrimitive->isLight) return hitPrimitive->material.color;
 		vec3 illumination(0.0f), I, N;
-		Material material;
 		I = ray.origin + ray.direction * ray.dist;
 		N = hitPrimitive->GetNormal(I);
-		//materialColor = hitPrimitive->material.color;
-		// original ray is always reflected
+		// primary ray is always reflected
 		switch (hitPrimitive->material.type)
 		{
 		case Material::DIFFUSE:
 		case Material::MIRROR:
 		{
-			Reflect(ray, I, N);
+			Reflect(reflectedRay, I, N);
 			if (hitPrimitive->material.diffuse)
-				illumination = DirectAndSpecularIllumination(I, N, ray, hitPrimitive);
+				illumination = GetDirectAndSpecularIllumination(I, N, reflectedRay, hitPrimitive);
 
 			// handling partially reflective materials
 			float specular = 1.0f - hitPrimitive->material.diffuse;
@@ -75,38 +75,36 @@ vec3 Renderer::Trace(Ray ray, int depth)
 			{
 				if (depth++ > maxDepth)
 					return illumination;
-				illumination += specular * Trace(ray, depth);
+				illumination += specular * Trace(reflectedRay, depth);
 			}
-
-			//materialColor = illumination;
 			break;
 		}
 		case Material::DIELECTRICS:
 		{
-			Ray refractRay;
-			refractRay.direction = ray.direction;
-			refractRay.origin = ray.origin;
-			refractRay.dist = ray.dist;
-			Reflect(ray, I, N);
+			Reflect(reflectedRay, I, N);
 			if (hitPrimitive->material.diffuse)
-				illumination = DirectAndSpecularIllumination(I, N, ray, hitPrimitive);
+				illumination = GetDirectAndSpecularIllumination(I, N, reflectedRay, hitPrimitive);
 			float fr = 1.0f;
 			float n1 = hitPrimitive->material.refraction;
 			float n2 = Material::refractionIndices[Material::RefractionInd::AIR];
 			float cosI;
 			if (depth++ > maxDepth) return illumination;
 			// refraction and reflection
-			if (Refract(refractRay, I, N, n1, n2, cosI))
+			Ray refractedRay;
+			refractedRay.direction = ray.direction;
+			refractedRay.origin = ray.origin;
+			bool refractExist = Refract(refractedRay, I, N, n1, n2, cosI);
+			// do reflection
+			fr = SchlickApproximation(n1, n2, cosI);
+			illumination += fr * Trace(reflectedRay, depth);
+			// do refraction with Beer's law
+			if (refractExist)
 			{
-				fr = SchlickApproximation(n1, n2, cosI);
-				illumination += fr * Trace(ray, depth) + (1.0f - fr) * Trace(refractRay, depth);
+				vec3 refractionColor = Trace(refractedRay, depth);
+				vec3 attenuation = hitPrimitive->material.color * hitPrimitive->material.absorption * -refractedRay.dist;
+				vec3 absorption = vec3(expf(attenuation.x), expf(attenuation.y), expf(attenuation.z));
+				illumination += absorption * (1.0f - fr) *  refractionColor;
 			}
-			else
-			{
-				fr = SchlickApproximation(n1, n2, cosI);
-				illumination += fr * Trace(ray, depth);
-			}
-			//materialColor = illumination;
 			break;
 		}
 		}
@@ -115,7 +113,7 @@ vec3 Renderer::Trace(Ray ray, int depth)
 	return color;
 }
 
-vec3 Renderer::GetSpecularIllumination(Ray &shadowRay, Ray &reflectedRay, Primitive* light, Primitive* hit)
+inline vec3 Renderer::GetSpecularIllumination(Ray &shadowRay, Ray &reflectedRay, Primitive* hit)
 {
 	float LR = dot(shadowRay.direction, reflectedRay.direction);
 	if (LR <= 0.0f)
@@ -126,7 +124,7 @@ vec3 Renderer::GetSpecularIllumination(Ray &shadowRay, Ray &reflectedRay, Primit
 	return specular;
 }
 
-vec3 Renderer::DirectAndSpecularIllumination(vec3 I, vec3 N, Ray &ray, Primitive* hitPrimitive)
+vec3 Renderer::GetDirectAndSpecularIllumination(vec3 I, vec3 N, Ray &ray, Primitive* hitPrimitive)
 {
 	Primitive **lights = scene.GetLights();
 	Primitive *shadowPrimitive;
@@ -149,19 +147,18 @@ vec3 Renderer::DirectAndSpecularIllumination(vec3 I, vec3 N, Ray &ray, Primitive
 			{
 				vec3 lightContribution = lights[i]->intensity * lights[i]->material.color;
 				// direct contribution
-				if(hitPrimitive->material.diffuse > 0.0f)
+				if (hitPrimitive->material.diffuse > 0.0f)
 					directColor += lightContribution * LN;
 				// specular contribution
-				if(hitPrimitive->material.specular > 0.0f)
-					specularColor += lightContribution * GetSpecularIllumination(shadowRay, ray, lights[i], hitPrimitive);
+				if (hitPrimitive->material.specular > 0.0f)
+					specularColor += lightContribution * GetSpecularIllumination(shadowRay, ray, hitPrimitive);
 			}
 		}
 	}
-	//return directColor + hitPrimitive->material.specular * specularColor;
 	return hitPrimitive->material.diffuse * hitPrimitive->material.color * directColor + hitPrimitive->material.specular * specularColor;
 }
 
-vec3 Renderer::DirectIllumination(vec3 I, vec3 N)
+vec3 Renderer::GetDirectIllumination(vec3 I, vec3 N)
 {
 	Primitive **lights = scene.GetLights();
 	Primitive *shadowPrimitive;

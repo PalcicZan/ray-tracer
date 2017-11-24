@@ -147,6 +147,7 @@ public:
 vec3 normalize( const vec3& v );
 vec3 cross( const vec3& a, const vec3& b );
 float dot( const vec3& a, const vec3& b );
+vec3 toVec3(vec4& v);
 vec3 operator * ( const float& s, const vec3& v );
 vec3 operator * ( const vec3& v, const float& s );
 vec4 operator * ( const float& s, const vec4& v );
@@ -247,6 +248,7 @@ public:
 };
 
 vec4 operator * ( const vec4& v, const mat4& M );
+vec4 operator * (const mat4& M, const vec4& v);
 
 #define BADFLOAT(x) ((*(uint*)&x & 0x7f000000) == 0x7f000000)
 

@@ -22,6 +22,7 @@ double timer::inv_freq = 1;
 vec3 normalize( const vec3& v ) { return v.normalized(); }
 vec3 cross( const vec3& a, const vec3& b ) { return a.cross( b ); }
 float dot( const vec3& a, const vec3& b ) { return a.dot( b ); }
+vec3 toVec3(vec4 &v) { return vec3(v.x, v.y, v.z);}
 vec3 operator * ( const float& s, const vec3& v ) { return vec3( v.x * s, v.y * s, v.z * s ); }
 vec3 operator * ( const vec3& v, const float& s ) { return vec3( v.x * s, v.y * s, v.z * s ); }
 vec4 operator * ( const float& s, const vec4& v ) { return vec4( v.x * s, v.y * s, v.z * s, v.w * s ); }
@@ -34,6 +35,16 @@ vec4 operator * ( const vec4& v, const mat4& M )
 	vec4 mw( M.cell[3], M.cell[7], M.cell[11], M.cell[15] );
 	return v.x * mx + v.y * my + v.z * mz + v.w * mw;
 }
+
+vec4 operator*(const mat4 & M, const vec4 &v)
+{
+	vec4 mx(M.cell[0], M.cell[1], M.cell[2], M.cell[3]);
+	vec4 my(M.cell[4], M.cell[5], M.cell[6], M.cell[7]);
+	vec4 mz(M.cell[8], M.cell[9], M.cell[10], M.cell[11]);
+	vec4 mw(M.cell[12], M.cell[13], M.cell[14], M.cell[15]);
+	return vec4(v.dot(mx), v.dot(my), v.dot(mz), v.dot(mw));
+}
+
 mat4 mat4::rotate( const vec3 l, const float a )
 {
 	// http://inside.mines.edu/fs_home/gmurray/ArbitraryAxisRotation

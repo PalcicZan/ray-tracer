@@ -36,7 +36,6 @@ extern "C"
 using namespace std;
 using namespace Tmpl8;
 
-#include "tiny_oby_loader.h"
 #include "ray.h"
 #include "scene.h"
 #include "camera.h"

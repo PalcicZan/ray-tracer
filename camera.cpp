@@ -3,6 +3,7 @@
 inline Camera::Camera(vec3 position, vec3 direction, float fov) :
 	position(position), direction(direction), zfar(4.0f), znear(0.0f)
 {
+	aspectRatio = (float)SCRWIDTH / SCRHEIGHT;
 	SetFov(fov);
 	SetInterpolationStep();
 }
@@ -11,76 +12,81 @@ void Camera::Initialize(vec3 position, vec3 direction, float fov)
 {
 	this->position = position;
 	this->direction = direction;
+	aspectRatio = (float)SCRWIDTH / SCRHEIGHT;
 	SetFov(fov);
 	SetInterpolationStep();
-	SetTransformationMatrices();
 }
 
 void Camera::Move(Direction dir)
 {
-	float speed = 0.5f;
-	printf("(%lf, %lf, %lf), (%lf, %lf, %lf)\n", position.x, position.y, position.z, direction.x, direction.y, direction.z);
-
-	vec3 forwardVector = direction - position;
-	//translation = translation.identity();
-	//translation[14] = speed;
-	forwardVector.normalize();
-	//vec4 temp = vec4(position.x, position.y, position.z, 1.0f) * translation;
-	//position *= vec3(temp.x, temp.y, temp.z);
-	//direction *= vec3(temp.x, temp.y, temp.z);
+	float speed = 0.05f;
 	switch (dir)
 	{
 	case Camera::Direction::FORWARD:
-		position += forwardVector * speed;
-		direction += forwardVector * speed;
+		position += speed * direction;
 		break;
 	case Camera::Direction::BACKWARD:
-		position -= forwardVector * speed;
-		direction -= forwardVector * speed;
+		position -= speed * direction;
 		break;
 	case Camera::Direction::LEFT:
-	{
-		vec3 leftVector = cross(vec3(0, 1, 0), forwardVector);
-		position += leftVector * speed;
-		direction += leftVector * speed;
+		position -= right * speed;
 		break;
-	}
 	case Camera::Direction::RIGHT:
-	{
-		vec3 leftVector = cross(forwardVector, vec3(0, 1, 0));
-		position += leftVector * speed;
-		direction += leftVector * speed;
+		position += right * speed;
 		break;
-	}
 	case Camera::Direction::UP:
-		position += vec3(0, speed, 0);
-		direction += vec3(0, speed, 0);
+		position += up * speed;
 		break;
 	case Camera::Direction::DOWN:
-		position -= vec3(0, speed, 0);
-		direction -= vec3(0, speed, 0);
+		position -= up * speed;
 		break;
 	}
-//	SetInterpolationStep();
-	//SetInterpolationStep();*/
 }
 
+// derived from https://stackoverflow.com/questions/34378214/how-to-move-around-camera-using-mouse-in-opengl
 void Camera::LookAt(vec3 offset)
 {
-	//direction += offset;
-	//direction.normalize();
-	printf("%lf %lf %lf %lf %lf %lf\n", offset.x, offset.y, offset.z, direction.x, direction.y, direction.z);
-	//SetInterpolationStep();
+	float step = 0.005f;
+	xa += step * offset.x;
+	ya -= step * offset.z;
+
+	if (ya > PI / 2.0f)
+	{
+		ya = PI / 2.0f - 0.0001f;
+	}
+	else if (ya < -PI / 2.0f)
+	{
+		ya = -PI / 2.0f + 0.0001f;
+	}
+	float pitch = ya;
+	float yaw = xa;
+	direction.x = -sin(yaw) * cos(pitch);
+	direction.y = -sin(pitch);
+	direction.z = -cos(yaw) * cos(pitch);
+
+	right.x = cos(yaw);
+	right.y = 0.0;
+	right.z = -sin(yaw);
+
+	up.normalize();
+	direction.normalize();
+	right.normalize();
+	up = cross(right, direction);
+}
+
+void Camera::ChangePerspective() {
+	pm0 = toVec3(translation * (rotateZMatrix * (rotateYMatrix * (rotateXMatrix * vec4(p0, 0.0f)))));
+	pm1 = toVec3(translation * (rotateZMatrix * (rotateYMatrix * (rotateXMatrix * vec4(p1, 0.0f)))));
+	pm2 = toVec3(translation * (rotateZMatrix * (rotateYMatrix * (rotateXMatrix * vec4(p2, 0.0f)))));
+	positionm = toVec3(translation * (rotateZMatrix * (rotateYMatrix * (rotateXMatrix * vec4(position, 1.0f)))));
 }
 
 void Camera::SetTransformationMatrices()
 {
 	translation.identity();
-	translation[0] = fov * aspectRatio;
-	translation[5] = fov; // fovY same as fovX
-	translation[10] = -(zfar + znear) / (zfar - znear);
-	translation[14] = -2 * (zfar * znear) / (zfar - znear);
-	translation[11] = -1;
+	rotateXMatrix.identity();
+	rotateYMatrix.identity();
+	rotateZMatrix.identity();
 }
 
 vec3 Camera::Transform(mat4 transformMatrix, vec3 vec)
@@ -92,21 +98,20 @@ vec3 Camera::Transform(mat4 transformMatrix, vec3 vec)
 
 void Camera::SetInterpolationStep()
 {
-	aspectRatio = (float)SCRWIDTH / SCRHEIGHT;
-	// world space coordinates with respect to aspect ratio
-	vec3 screenCenter = position + direction * zfar;
-	sz = screenCenter.z;
-	sx = -1.0f * aspectRatio;
-	sy = 1.0f;
-	p0 = screenCenter + vec3(-1 * aspectRatio * fov, 1 * fov, 0);
-	p1 = (screenCenter + vec3(1 * aspectRatio * fov, 1 * fov, 0) - p0)*(1.0f / SCRWIDTH);
-	p2 = (screenCenter + vec3(-1 * aspectRatio * fov, -1 * fov, 0) - p0)*(1.0f / SCRHEIGHT);
-	p0 -= position;
-	float ex = -sx;
-	float ey = -sy;
+	up = vec3(0, 1.0f, 0);
+	direction.normalize();
+	right = cross(direction, up);
+	right.normalize();
+	up = cross(right, direction);
+
+	sx = -1.0f * aspectRatio * fov;
+	sy = 1.0f * fov;
+	//direction += ((2 * (x) / (float)SCRWIDTH - 1) * aspectRatio * fov) * this->right;
+	//direction += (1 - 2 * (y) / (float)SCRHEIGHT) * this->up;
+	
 	// to interpolate in world space
-	dx = (ex - sx) / SCRWIDTH;
-	dy = (ey - sy) / SCRHEIGHT;
+	dx = (-sx - sx) / (float)SCRWIDTH;
+	dy = (-sy - sy) / (float)SCRHEIGHT;
 }
 
 void Camera::SetFov(float deg)
@@ -123,16 +128,17 @@ Ray Camera::CastRay(int x, int y)
 	vec3 origin = this->position;
 	vec3 direction = vec3(sx + x*dx, sy + y*dy, 0) - origin;
 	direction.normalize();
+	origin = toVec3(translation * vec4(vec3(0.0f), 1.0f));
+	direction = toVec3(translation *  vec4(direction, 1.0f));
 	return Ray(origin, direction);
 }
 
 Ray Camera::CastRayGeneral(int x, int y)
 {
 	vec3 origin = this->position;
-	//float fx = (float)x;//* 1.0f / SCRWIDTH;
-	//float fy = (float)y;//* 1.0f / SCRHEIGHT;
-	vec3 direction = p0 + p1*(float)x + p2*(float)y;
-	//direction = Transform(translation, vec3(fx, fy, -1.0f));
+	vec3 direction = this->direction; 
+	direction += (sx + (float)x*dx) * this->right;
+	direction += (sy + (float)y*dy) * this->up;
 	direction.normalize();
 	return Ray(origin, direction);
 }

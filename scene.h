@@ -27,6 +27,7 @@ public:
 	int type;
 	float refraction;
 	float reflection;
+	float absorption = 0.25f;
 	float diffuse = 0.0f, specular = 0.0f, glossines = 1.0f;
 };
 
@@ -82,15 +83,17 @@ class Triangle : public Primitive {
 public:
 	Triangle() {};
 	Triangle(vec3 v0, vec3 v1, vec3 v2, Material material) :
-		Primitive(v0, material), v0(v0), v1(v1), v2(v2), edge1(v1 - v0), edge2(v2 - v0)
+		Primitive(v0, material), v0(v0), v1(v1), v2(v2)
 	{
-		N = cross(edge1, edge2);
+		N = cross(v1 - v0, v2 - v0);
 	};
 	int GetType() { return TRIANGLE; };
 	vec3 GetNormal(vec3 &I) { return N; };
 	bool GetIntersection(Ray & ray);
+	vec3 GetColor();
 private:
-	vec3 position, v0, v1, v2, edge1, edge2, N;
+	vec3 v0, v1, v2, N;
+	vec3 n1, n2, n3;
 };
 
 class Scene {
