@@ -3,6 +3,9 @@
 static Camera camera;
 static Scene scene;
 static Renderer renderer;
+static JobManager *jm;
+static RenderParallel *rendererJob[4];
+
 static int frame = 0;
 
 // -----------------------------------------------------------
@@ -15,7 +18,18 @@ void Game::Init()
 	// initialize custom scene
 	scene.Initialize();
 	// initialize renderer with camera and scene
-	renderer.Initialize(camera, scene);
+	renderer.Initialize(&camera, &scene, screen);
+
+#if OPTIMIZE
+	JobManager::CreateJobManager(4);
+	jm = JobManager::GetJobManager();
+	rendererJob[0] = new RenderParallel(0, SCRHEIGHT / 4, &renderer);
+	rendererJob[1] = new RenderParallel(SCRHEIGHT / 2, SCRHEIGHT / 4 * 3, &renderer);
+	//rendererJob[0] = new RenderParallel(0, SCRHEIGHT / 4, &renderer);v
+	rendererJob[2] = new RenderParallel(SCRHEIGHT / 4, SCRHEIGHT / 2, &renderer);
+	//rendererJob[2] = new RenderParallel(SCRHEIGHT / 2, SCRHEIGHT / 4 * 3, &renderer);
+	rendererJob[3] = new RenderParallel(SCRHEIGHT / 4 * 3, SCRHEIGHT, &renderer);
+#endif
 }
 
 // -----------------------------------------------------------
@@ -32,28 +46,25 @@ void Game::Tick(float deltaTime)
 {
 	// clear the graphics window
 	screen->Clear(SetPixelColor(scene.GetBackground()));
-	printf("Frame %d.\n", ++frame);
-	// go through all pixels
-	for (int i = 0; i < SCRHEIGHT; i++)
-	{
-		for (int j = 0; j < SCRWIDTH; j++)
-		{
-			Ray r = camera.CastRayGeneral(j, i);
-			vec3 color = renderer.Trace(r, 0);
-			screen->Plot(j, i, SetPixelColor(color));
-		}
-	}
+
+#if OPTIMIZE
+	jm->AddJob2(rendererJob[0]);
+	jm->AddJob2(rendererJob[1]);
+	jm->AddJob2(rendererJob[2]);
+	jm->AddJob2(rendererJob[3]);
+	jm->RunJobs();
+#else
+	// Sim whole screen
+	renderer.Sim(0, SCRHEIGHT)
+#endif
 	screen->Print("Whitted ray tracer v0.5", 2, 2, 0xffffffff);
 }
 
 void Game::MouseMove(int x, int y)
 {
-
-	printf("%d %d\n", x, y);
 	if (handleCameraRotation)
 	{
-		camera.LookAt(vec3((float)x*0.5f, 0.0f, (float)y*0.5f));
-		printf("BUTTOM DOWN");
+		camera.LookAt(vec3((float)x, 0.0f, (float)y));
 	}
 }
 

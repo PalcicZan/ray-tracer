@@ -1,6 +1,4 @@
 #pragma once
-#define SIMPLE_SCENE 1
-
 class Material {
 public:
 	static const float refractionIndices[3];
@@ -27,7 +25,7 @@ public:
 	int type;
 	float refraction;
 	float reflection;
-	float absorption = 0.25f;
+	float absorption = 0.05f;
 	float diffuse = 0.0f, specular = 0.0f, glossines = 1.0f;
 };
 
@@ -40,11 +38,18 @@ public:
 		PLANE,
 		TRIANGLE
 	};
+	enum LightType {
+		NONE = 0,
+		INF,
+		POINT,
+	};
 
 	virtual bool GetIntersection(Ray &ray) = 0;
 	virtual vec3 GetNormal(vec3 &position) = 0;
-	bool SetAsLight() { isLight = true; };
-	bool isLight = false;
+	vec3 GetLightIntensity(float dist);
+	//void SetAsLight(LightType l) { lightType = l; };
+	//bool isLight = false;
+	LightType lightType = LightType::NONE;
 	float intensity;
 	vec3 position;
 	Material material;
@@ -102,7 +107,8 @@ public:
 	~Scene();
 	void Initialize();
 	Primitive * GetNearestIntersection(Ray & r);
-	void LoadObj();
+	Primitive * GetAnyIntersection(Ray & r, float maxDist);
+	int LoadObj(string inputfile, int numOfPrimitives, vec3 objOffset, Primitive **& primitives);
 	void SetBackground(vec3 color);
 	vec3 GetBackground() { return backgroundColor; };
 	int GetNumberOfPrimitives() { return nPrimitives; };

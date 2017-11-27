@@ -244,6 +244,7 @@
     <ClInclude Include="ray.h" />
     <ClInclude Include="renderer.h" />
     <ClInclude Include="scene.h" />
+    <ClInclude Include="settings.h" />
     <ClInclude Include="surface.h" />
     <ClInclude Include="template.h" />
     <ClInclude Include="threads.h" />

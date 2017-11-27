@@ -33,6 +33,7 @@
     <ClInclude Include="renderer.h" />
     <ClInclude Include="scene.h" />
     <ClInclude Include="tiny_oby_loader.h" />
+    <ClInclude Include="settings.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="template code">
