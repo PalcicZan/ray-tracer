@@ -147,6 +147,19 @@ void JobManager::RunJobs()
 	WaitForMultipleObjects( m_NumThreads, m_ThreadDone, TRUE, INFINITE );
 }
 
+void JobManager::RunJobsUnblocked()
+{
+	for (unsigned int i = 0; i < m_NumThreads; i++)
+	{
+		m_JobThreadList[i].Go();
+	}
+}
+
+
+void JobManager::WaitForThreads() {
+	WaitForMultipleObjects(m_NumThreads, m_ThreadDone, TRUE, INFINITE);
+}
+
 void JobManager::ThreadDone( unsigned int n ) 
 { 
 	SetEvent( m_ThreadDone[n] ); 

@@ -36,10 +36,15 @@ inline Pixel SubBlend( Pixel a_Color1, Pixel a_Color2 )
 
 inline Pixel SetPixelColor(vec3 color)
 {
-	uint red = min(uint(color.x * 256), 255);
-	uint green = min(uint(color.y * 256), 255);
-	uint blue = min(uint(color.z * 256), 255);
+	uint red = min(uint(color.x * 255), 255);
+	uint green = min(uint(color.y * 255), 255);
+	uint blue = min(uint(color.z * 255), 255);
 	return (red << 16) | (green << 8) | blue;
+}
+
+inline vec3 getPixelColor(Pixel color)
+{
+	return vec3((float)((color & 0xFF0000) >> 16) / 255.0f, (float)((color & 0xFF00) >> 8) / 255.0f, (float)(color & 0xFF)/255.0f);
 }
 
 class Surface

@@ -9,7 +9,9 @@
 // #define FULLSCREEN
 // #define ADVANCEDGL	// faster if your system supports it
 
+
 #include <inttypes.h>
+
 extern "C" 
 { 
 #include "glew.h" 
@@ -36,7 +38,10 @@ extern "C"
 using namespace std;
 using namespace Tmpl8;
 
+// user settings
 #include "settings.h"
+
+// ray tracer
 #include "ray.h"
 #include "scene.h"
 #include "camera.h"

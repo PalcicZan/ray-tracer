@@ -15,6 +15,9 @@ void Camera::Initialize(vec3 position, vec3 direction, float fov)
 	aspectRatio = (float)SCRWIDTH / SCRHEIGHT;
 	SetFov(fov);
 	SetInterpolationStep();
+	UpdateCamera();
+	moveStep = 0.05f;
+	rotateStep = 0.0025f;
 }
 
 void Camera::SetInterpolationStep()
@@ -37,7 +40,8 @@ void Camera::SetInterpolationStep()
 
 void Camera::SetFov(float deg)
 {
-	float radFov = (deg / 2 * PI) / 180.0f;
+	fovDeg = deg;
+	float radFov = (fovDeg / 2 * PI) / 180.0f;
 	fov = tan(radFov);
 	if (info)
 		printf("Camera FOV: %lf\n", fov);
@@ -51,9 +55,10 @@ void Camera::SetTransformationMatrices()
 	rotateZMatrix.identity();
 }
 
-void Camera::Move(Direction dir)
+void Camera::Move(Direction dir, float deltaTime)
 {
-	float speed = 0.05f;
+	printf("%lf \n", deltaTime);
+	float speed = moveStep * deltaTime;
 	switch (dir)
 	{
 	case Camera::Direction::FORWARD:
@@ -75,12 +80,13 @@ void Camera::Move(Direction dir)
 		position -= up * speed;
 		break;
 	}
+	UpdateCamera();
 }
 
 // derived from https://stackoverflow.com/questions/34378214/how-to-move-around-camera-using-mouse-in-opengl
 void Camera::LookAt(vec3 offset)
 {
-	float step = 0.0025f;
+	float step = rotateStep;
 	xa += step * offset.x;
 	ya -= step * offset.z;
 
@@ -92,6 +98,7 @@ void Camera::LookAt(vec3 offset)
 	{
 		ya = -PI / 2.0f + 0.0001f;
 	}
+
 	float pitch = ya;
 	float yaw = xa;
 	direction.x = -sin(yaw) * cos(pitch);
@@ -106,6 +113,29 @@ void Camera::LookAt(vec3 offset)
 	direction.normalize();
 	right.normalize();
 	up = cross(right, direction);
+
+#if SIMD
+	UpdateCamera();
+#endif
+}
+
+void Camera::UpdateCamera()
+{
+#if SIMD
+	directionXVec = _mm_set1_ps(this->direction.x);
+	directionYVec = _mm_set1_ps(this->direction.y);
+	directionZVec = _mm_set1_ps(this->direction.z);
+	rightXVec = _mm_set1_ps(this->right.x);
+	rightYVec = _mm_set1_ps(this->right.y);
+	rightZVec = _mm_set1_ps(this->right.z);
+	upXVec = _mm_set1_ps(this->up.x);
+	upYVec = _mm_set1_ps(this->up.y);
+	upZVec = _mm_set1_ps(this->up.z);
+	sxVec = _mm_set1_ps(sx);
+	dxVec = _mm_set1_ps(dx);
+	syVec = _mm_set1_ps(sy);
+	dyVec = _mm_set1_ps(dy);
+#endif
 }
 
 void Camera::ChangePerspective()
@@ -162,7 +192,6 @@ void Camera::CastRay(Ray &primaryRay, int x, int y)
 void Camera::CastRays(vec3 *primaryRaysDirection)
 {
 #if 1
-	vec3 origin = this->position;
 	const __m256 dirX = _mm256_set1_ps(this->direction.x);
 	const __m256 dirY = _mm256_set1_ps(this->direction.y);
 	const __m256 dirZ = _mm256_set1_ps(this->direction.z);
@@ -189,7 +218,7 @@ void Camera::CastRays(vec3 *primaryRaysDirection)
 		__m256 yWeightX = _mm256_mul_ps(yWeight, uX);
 		__m256 yWeightY = _mm256_mul_ps(yWeight, uY);
 		__m256 yWeightZ = _mm256_mul_ps(yWeight, uZ);
-		for (int x = 0; x < SCRWIDTH / 8; x++)
+		for (int x = 0; x < SCRWIDTH / VEC_SIZE; x++)
 		{
 			__m256 calDirX = dirX;
 			__m256 calDirY = dirY;
@@ -209,14 +238,13 @@ void Camera::CastRays(vec3 *primaryRaysDirection)
 			dirNormX = _mm256_mul_ps(calDirX, rec);
 			dirNormY = _mm256_mul_ps(calDirY, rec);
 			dirNormZ = _mm256_mul_ps(calDirZ, rec);
-			for (int j = 0; j < 8; j++)
+			for (int j = 0; j < VEC_SIZE; j++)
 			{
 				primaryRaysDirection[i + j].x = dx_[j];
 				primaryRaysDirection[i + j].y = dy_[j];
 				primaryRaysDirection[i + j].z = dz_[j];
 			}
-
-			i += 8;
+			i += VEC_SIZE;
 		}
 	}
 #else

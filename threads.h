@@ -62,6 +62,8 @@ public:
 	void AddJob2( Job* a_Job );
 	unsigned int GetNumThreads() { return m_NumThreads; }
 	void RunJobs();
+	void RunJobsUnblocked();
+	void WaitForThreads();
 	void ThreadDone( unsigned int n );
 	int MaxConcurrent() { return m_NumThreads; }
 protected:

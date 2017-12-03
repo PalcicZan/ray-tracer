@@ -1,9 +1,6 @@
 #pragma once
 
 namespace Tmpl8 {
-
-
-
 class Game
 {
 public:
@@ -18,6 +15,7 @@ public:
 	void KeyDown(int key);
 private:
 	bool handleCameraRotation;
+	float deltaTime;
 	Surface* screen;
 };
 
