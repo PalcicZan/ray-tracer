@@ -44,7 +44,7 @@ inline Pixel SetPixelColor(vec3 color)
 
 inline vec3 getPixelColor(Pixel color)
 {
-	return vec3((float)((color & 0xFF0000) >> 16) / 255.0f, (float)((color & 0xFF00) >> 8) / 255.0f, (float)(color & 0xFF)/255.0f);
+	return vec3((float)((color & 0xFF0000) >> 16) / 255.0f, (float)((color & 0xFF00) >> 8) / 255.0f, (float)(color & 0xFF) / 255.0f);
 }
 
 class Surface

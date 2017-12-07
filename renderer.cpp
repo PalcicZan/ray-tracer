@@ -3,24 +3,20 @@
 // -----------------------------------------------------------
 // Initialization of Whitted-style renderer
 // -----------------------------------------------------------
-void Renderer::Initialize(Camera *camera, Scene *scene, Surface *screen)
-{
+void Renderer::Initialize(Camera *camera, Scene *scene, Surface *screen) {
 	this->camera = camera;
 	this->scene = scene;
 	this->screen = screen;
 }
 
-inline void Renderer::Reflect(Ray &ray, vec3 &I, vec3 &N, float &DN)
-{
+inline void Renderer::Reflect(Ray &ray, vec3 &I, vec3 &N, float &DN) {
 	ray.direction = ray.direction - 2 * (DN)*N;
 	ray.origin = I;
 	ray.dist = INFINITY;
 }
 
-inline bool Renderer::Refract(Ray &ray, vec3 &I, vec3 &N, float &n1, float &n2, float &cosI)
-{
-	//if (cosI < 0.0f) cosI = -cosI;
-	//else N = -N;
+inline bool Renderer::Refract(Ray &ray, vec3 &I, vec3 &N, float &n1, float &n2, float &cosI) {
+	//cosI = -dot(ray.direction, N);
 	float n = n1 / n2;
 	float k = 1 - (n * n) * (1 - cosI * cosI);
 	if (k < 0.0f) return false;
@@ -30,53 +26,51 @@ inline bool Renderer::Refract(Ray &ray, vec3 &I, vec3 &N, float &n1, float &n2, 
 	return true;
 }
 
-void Renderer::RefractAndReflect(Ray &reflectRay, Ray &refractedRay, vec3 &I, vec3 &N, Primitive &primitive, bool inside)
-{
-
-}
-
-inline float Renderer::SchlickApproximation(float n1, float n2, float cosI)
-{
+inline float Renderer::SchlickApproximation(float n1, float n2, float cosI) {
 	float r0 = (n1 - n2) / (n1 + n2);
 	float c = (1 - cosI);
 	r0 *= r0;
+	/*if (n1 > n2)
+	{
+		float n = n1 / n2;
+		float sinT2 = n*n*(1.0 - cosI*cosI);
+		// Total internal reflection
+		if (sinT2 > 1.0)
+			return 1.0;
+		cosI = sqrt(1.0 - sinT2);
+		c = 1 - cosI;
+	}*/
 	return r0 + (1 - r0)*c*c*c*c*c;
 }
 
 // -----------------------------------------------------------
 // Calculating different illuminations
 // -----------------------------------------------------------
-inline vec3 Renderer::GetSpecularIllumination(Ray &shadowRay, Ray &reflectedRay, Primitive* hit)
-{
+inline vec3 Renderer::GetSpecularIllumination(Ray &shadowRay, Ray &reflectedRay, Primitive* hit) {
 	float LR = dot(shadowRay.direction, reflectedRay.direction);
 	if (LR <= 0.0f)	return vec3(0.0f);
 	return powf(LR, hit->material.glossines);
 }
 
-inline vec3 Renderer::GetDirectAndSpecularIllumination(vec3 I, vec3 N, Ray &ray, Primitive* hitPrimitive, int &intersectionCounter)
-{
+inline vec3 Renderer::GetDirectAndSpecularIllumination(vec3 I, vec3 N, Ray &ray, float &u, float &v, Primitive* hitPrimitive, int &intersectionCounter) {
 	Primitive **lights = scene->GetLights();
 	Primitive *shadowPrimitive;
 	vec3 directColor(0.0f);
 	vec3 specularColor(0.0f);
 	Ray shadowRay;
 	shadowRay.origin = I;
-	for (int i = 0; i < scene->GetNumberOfLights(); i++)
-	{
+	for (int i = 0; i < scene->GetNumberOfLights(); i++) {
 		shadowRay.direction = lights[i]->position - I;
 		vec3 orgDir = shadowRay.direction;
 		shadowRay.direction = normalize(shadowRay.direction);
 		float LN = dot(shadowRay.direction, N);
-		if (LN > 0.0f)
-		{
+		if (LN > 0.0f) {
 			// get any intersection between light and object - limitation dielectric material casts shadows
 			shadowRay.dist = INFINITY;
 			float shadowRayDistance = dot(orgDir, orgDir);
 			shadowPrimitive = scene->GetAnyIntersection(shadowRay, shadowRayDistance, intersectionCounter);
 			// not in the shadow
-			if (shadowPrimitive == nullptr)
-			{
-				//vec3 lightContribution = (lights[i]->intensity * lights[i]->material.color);// *(1.0f / (4 * PI * shadowRay.dist));
+			if (shadowPrimitive == nullptr) {
 				vec3 lightContribution = lights[i]->GetLightIntensity(shadowRayDistance);
 				// direct contribution
 				if (hitPrimitive->material.diffuse > 0.0f)
@@ -87,28 +81,25 @@ inline vec3 Renderer::GetDirectAndSpecularIllumination(vec3 I, vec3 N, Ray &ray,
 			}
 		}
 	}
-	return hitPrimitive->material.diffuse * hitPrimitive->GetColor(I) * directColor + hitPrimitive->material.specular * specularColor;
+	return hitPrimitive->material.diffuse * hitPrimitive->GetColor(I, u, v) * directColor + hitPrimitive->material.specular * specularColor;
 }
 
-inline vec3 Renderer::GetDirectIllumination(vec3 I, vec3 N, int& intersectionCounter)
-{
+inline vec3 Renderer::GetDirectIllumination(vec3 I, vec3 N, int& intersectionCounter) {
 	Primitive **lights = scene->GetLights();
 	Primitive *shadowPrimitive;
 	vec3 color(0.0f);
 	Ray shadowRay;
-	for (int i = 0; i < scene->GetNumberOfLights(); i++)
-	{
+	float u, v;
+	for (int i = 0; i < scene->GetNumberOfLights(); i++) {
 		shadowRay.direction = lights[i]->position - I;
 		float shadowRayDistance = dot(shadowRay.direction, shadowRay.direction);
 		shadowRay.direction = normalize(shadowRay.direction);
 		float LN = dot(shadowRay.direction, N);
-		if (LN > 0.0f)
-		{
+		if (LN > 0.0f) {
 			shadowRay.origin = I;
 			shadowRay.dist = INFINITY;
-			shadowPrimitive = scene->GetNearestIntersection(shadowRay, intersectionCounter);
-			if (shadowPrimitive == nullptr || shadowPrimitive == lights[i] || (shadowRay.dist * shadowRay.dist) > shadowRayDistance)
-			{
+			shadowPrimitive = scene->GetNearestIntersection(shadowRay, u, v, intersectionCounter);
+			if (shadowPrimitive == nullptr || shadowPrimitive == lights[i] || (shadowRay.dist * shadowRay.dist) > shadowRayDistance) {
 				// diffuse contribution
 				color += lights[i]->intensity * LN;
 			}
@@ -118,46 +109,41 @@ inline vec3 Renderer::GetDirectIllumination(vec3 I, vec3 N, int& intersectionCou
 }
 
 // -----------------------------------------------------------
-// Tracing - todo: dist, reflect primary ray
+// Tracing
 // -----------------------------------------------------------
-vec3 Renderer::Trace(Ray& ray, int depth, float& dist, int& intersectionCounter)
-{
-	if (depth > maxDepth) return scene->GetBackground();
+vec3 Renderer::Trace(Ray& ray, int depth, float& dist, int& intersectionCounter) {
+	if (depth > MAX_DEPTH) return scene->GetBackground();
 
 	// check for nearest intersection
-	Primitive *hitPrimitive = scene->GetNearestIntersection(ray, intersectionCounter);
+	float u = 1, v = 0;
+	Primitive *hitPrimitive = scene->GetNearestIntersection(ray, u, v, intersectionCounter);
 	if (hitPrimitive == nullptr) return scene->GetBackground();
 	else if (hitPrimitive->lightType != Primitive::LightType::NONE) return hitPrimitive->GetLightIntensity((camera->position - hitPrimitive->position).length());
 
-	//Ray reflectedRay;
-	//reflectedRay.direction = ray.direction;
-	//reflectedRay.type = ray.type;
 	vec3 illumination(0.0f);
 	dist = ray.dist;
 	vec3 I = ray.origin + ray.direction * ray.dist;
 	vec3 N = hitPrimitive->GetNormal(I);
 
-	float newDist = INFINITY;
-	switch (hitPrimitive->material.type)
-	{
+	float distRefr = INFINITY;
+	switch (hitPrimitive->material.type) {
 	case Material::DIFFUSE:
 	case Material::MIRROR:
 	{
 		// primary ray is always reflected - not true
 		float specular = 1.0f - hitPrimitive->material.diffuse;
 		// shiny or specular as mirror
-		if (hitPrimitive->material.specular || specular)
-		{
+		if (hitPrimitive->material.specular || specular) {
 			float DN = dot(ray.direction, N);
 			Reflect(ray, I, N, DN);
 		}
 		// without perfect specular object
 		if (specular != 1.0f)
-			illumination = GetDirectAndSpecularIllumination(I, N, ray, hitPrimitive, intersectionCounter);
+			illumination = GetDirectAndSpecularIllumination(I, N, ray, u, v, hitPrimitive, intersectionCounter);
 
 		// handling partially reflective materials
 		if (specular > 0.0f)
-			illumination += specular * Trace(ray, depth + 1, newDist, intersectionCounter);
+			illumination += specular * Trace(ray, depth + 1, distRefr, intersectionCounter);
 
 		return illumination;
 	}
@@ -169,47 +155,35 @@ vec3 Renderer::Trace(Ray& ray, int depth, float& dist, int& intersectionCounter)
 		Reflect(ray, I, N, DN);
 		// do direct and specular illumination
 		//if (1.0f - hitPrimitive->material.diffuse)
-		//	illumination = GetDirectAndSpecularIllumination(I, N, ray, hitPrimitive, intersectionCounter);
-
-		const bool inside = DN > 0.0f;
-		vec3 fixOffset;
-		float n1, n2;
-		if (inside)
-		{
-			// move origin towards center or outwards for small amount
-			fixOffset = 0.0001f * N;
+		//	illumination = GetDirectAndSpecularIllumination(I, N, ray, u, v, hitPrimitive, intersectionCounter);
+		float n1, n2; //vec3 fixOffset;
+		if (DN > 0.0f) {
 			N = -N;
 			n1 = hitPrimitive->material.refraction;
 			n2 = Material::refractionIndices[Material::RefractionInd::AIR];
-		}
-		else
-		{
+		} else {
 			DN = -DN;
-			fixOffset = -0.0001f * N;
 			n2 = hitPrimitive->material.refraction;
 			n1 = Material::refractionIndices[Material::RefractionInd::AIR];
-		}
-
-		ray.origin += fixOffset;
-
-		// do refraction 
-		bool refractExist = Refract(refractedRay, I, N, n1, n2, DN);
+		};
+		//DN = dot(ray.direction, N);
+	   // move origin towards center or outwards for small amount
+		vec3 fixOffset = -0.0001f * N;
+		ray.origin -= fixOffset;
 		// do refraction with Beer's law
-		if (refractExist)
-		{
+		float distRefl;
+		if (Refract(refractedRay, I, N, n1, n2, DN)) {
 			float fr = SchlickApproximation(n1, n2, DN);
-			illumination += fr * Trace(ray, depth + 1, newDist, intersectionCounter);
+			illumination += fr * Trace(ray, depth + 1, distRefl, intersectionCounter);
 			refractedRay.type = ray.type ^ 4;
 			refractedRay.origin += fixOffset;
-			vec3 refractionColor = Trace(refractedRay, depth + 1, newDist, intersectionCounter);
-			vec3 attenuation = hitPrimitive->GetColor(I) * hitPrimitive->material.absorption * -newDist;
+			vec3 refractionColor = Trace(refractedRay, depth + 1, distRefr, intersectionCounter);
+			vec3 attenuation = hitPrimitive->GetColor(I, u, v) * hitPrimitive->material.absorption * -distRefr;
 			vec3 absorption = vec3(expf(attenuation.x), expf(attenuation.y), expf(attenuation.z)); // = 1.0f;
 			illumination += absorption * (1.0f - fr) *  refractionColor;
-		}
-		else
-		{
+		} else {
 			// all energy to reflection
-			illumination += Trace(ray, depth + 1, newDist, intersectionCounter);
+			illumination += Trace(ray, depth + 1, distRefl, intersectionCounter);
 		}
 		return illumination;
 	}
@@ -217,27 +191,29 @@ vec3 Renderer::Trace(Ray& ray, int depth, float& dist, int& intersectionCounter)
 	return illumination;
 }
 
-void Renderer::TraceMany(RayPacket& rays, vec3 colors[], int depth, float& dist, int& intersectionCounter)
-{
-	//if (depth > maxDepth) return scene->GetBackground();
-	union { int pi[VEC_SIZE]; __mVeci piVec; };
+void Renderer::TraceMany(RayPacket& rays, vec3 *colors, int depth, float& dist, int& intersectionCounter) {
+
+	__mVec intersectionMask;
+	union { int primI[VEC_SIZE]; __mVeci primIVec; };
+	union { float u[VEC_SIZE]; __mVec uVec; };
+	union { float v[VEC_SIZE]; __mVec vVec; };
 	// check for nearest intersection
 	Primitive **primitives = scene->GetPrimitives();
-	scene->GetNearestIntersections(rays, piVec, intersectionCounter);
-	Ray ray;
+	scene->GetNearestIntersections(rays, intersectionMask, uVec, vVec, intersectionCounter);
+	
 	union { float Ix[VEC_SIZE]; __mVec IVecX; };
 	union { float Iy[VEC_SIZE]; __mVec IVecY; };
 	union { float Iz[VEC_SIZE]; __mVec IVecZ; };
 	IVecX = _mm_add_ps(rays.originXVec, _mm_mul_ps(rays.directionXVec, rays.distVec));
 	IVecY = _mm_add_ps(rays.originYVec, _mm_mul_ps(rays.directionYVec, rays.distVec));
 	IVecZ = _mm_add_ps(rays.originZVec, _mm_mul_ps(rays.directionZVec, rays.distVec));
+	primIVec = _mm_cvttps_epi32(_mm_sub_ps(intersectionMask, ONEVEC));
 
-	for (int i = 0; i < VEC_SIZE; i++)
-	{
-		if (pi[i] == -1) { colors[i] = scene->GetBackground(); continue; }
-		Primitive *hit = primitives[pi[i]];
-		if (hit->lightType != Primitive::LightType::NONE)
-		{
+	Ray ray;
+	for (int i = 0; i < VEC_SIZE; i++) {
+		if (primI[i] == -1) { colors[i] = scene->GetBackground(); continue; }
+		Primitive *hit = primitives[primI[i]];
+		if (hit->lightType != Primitive::LightType::NONE) {
 			colors[i] = hit->GetLightIntensity((camera->position - hit->position).length());
 			continue;
 		}
@@ -247,32 +223,27 @@ void Renderer::TraceMany(RayPacket& rays, vec3 colors[], int depth, float& dist,
 		dist = ray.dist;
 
 		vec3 I = vec3(Ix[i], Iy[i], Iz[i]);
-		//Ray reflectedRay;
-		//reflectedRay.direction = ray.direction;
-		//reflectedRay.type = ray.type;
-
-		vec3 illumination(0.0f);
 		vec3 N = hit->GetNormal(I);
-		float newDist;
-		switch (hit->material.type)
-		{
+		vec3 illumination(0.0f);
+
+		float distRefr;
+		switch (hit->material.type) {
 		case Material::DIFFUSE:
 		case Material::MIRROR:
 		{
 			float specular = 1.0f - hit->material.diffuse;
 			// shiny or specular as mirror
-			if (hit->material.specular || specular)
-			{
+			if (hit->material.specular || specular) {
 				float DN = dot(ray.direction, N);
 				Reflect(ray, I, N, DN);
 			}
 			// without perfect specular object
 			if (specular != 1.0f)
-				illumination = GetDirectAndSpecularIllumination(I, N, ray, hit, intersectionCounter);
+				illumination = GetDirectAndSpecularIllumination(I, N, ray, u[i], v[i], hit, intersectionCounter);
 
 			// handling partially reflective materials
 			if (specular > 0.0f)
-				illumination += specular * Trace(ray, depth + 1, newDist, intersectionCounter);
+				illumination += specular * Trace(ray, depth + 1, distRefr, intersectionCounter);
 			break;
 		}
 		case Material::DIELECTRICS:
@@ -286,43 +257,32 @@ void Renderer::TraceMany(RayPacket& rays, vec3 colors[], int depth, float& dist,
 			//if (1.0f - hit->material.diffuse)
 			//	illumination = GetDirectAndSpecularIllumination(I, N, reflectedRay, hit, intersectionCounter);
 
-			const bool inside = DN > 0.0f;
-			vec3 fixOffset;
 			float n1, n2;
-			if (inside)
-			{
-				// move origin towards center or outwards for small amount
-				fixOffset = 0.0001f * N;
+			if (DN > 0.0f) {
 				N = -N;
 				n1 = hit->material.refraction;
 				n2 = Material::refractionIndices[Material::RefractionInd::AIR];
-			}
-			else
-			{
+			} else {
 				DN = -DN;
-				fixOffset = -0.0001f * N;
 				n2 = hit->material.refraction;
 				n1 = Material::refractionIndices[Material::RefractionInd::AIR];
 			}
-
+			// move origin towards center or outwards for small amount
+			vec3 fixOffset = -0.0001f * N;
 			ray.origin += fixOffset;
-			bool refractExist = Refract(refractedRay, I, N, n1, n2, DN);
 			// do refraction with Beer's law
-			if (refractExist)
-			{
+			if (Refract(refractedRay, I, N, n1, n2, DN)) {
 				float fr = SchlickApproximation(n1, n2, DN);
-				illumination += fr * Trace(ray, depth + 1, newDist, intersectionCounter);
+				illumination += fr * Trace(ray, depth + 1, distRefr, intersectionCounter);
 				refractedRay.type = ray.type ^ 4;
 				refractedRay.origin += fixOffset;
-				vec3 refractionColor = Trace(refractedRay, depth + 1, newDist, intersectionCounter);
-				vec3 attenuation = hit->GetColor(I) * hit->material.absorption * -newDist;
+				vec3 refractionColor = Trace(refractedRay, depth + 1, distRefr, intersectionCounter);
+				vec3 attenuation = hit->GetColor(I, u[i], v[i]) * hit->material.absorption * -distRefr;
 				vec3 absorption = vec3(expf(attenuation.x), expf(attenuation.y), expf(attenuation.z)); // = 1.0f;
 				illumination += absorption * (1.0f - fr) *  refractionColor;
-			}
-			else
-			{
+			} else {
 				// all energy to reflection
-				illumination += Trace(ray, depth + 1, newDist, intersectionCounter);
+				illumination += Trace(ray, depth + 1, distRefr, intersectionCounter);
 			}
 			break;
 		}
@@ -334,32 +294,16 @@ void Renderer::TraceMany(RayPacket& rays, vec3 colors[], int depth, float& dist,
 // -----------------------------------------------------------
 // Single thread simulation of primary ray
 // -----------------------------------------------------------
-void Renderer::Sim(const int fromY, const int toY)
-{
+void Renderer::Sim(const int fromY, const int toY) {
 	Ray primaryRay;
 	int intersectionCounter = 0;
 	float dist = 0;
 	// go through all pixels
-	for (int y = fromY; y < toY; y++)
-	{
-		for (int x = 0; x < SCRWIDTH; x++)
-		{
-#if PRIMARY_RAY_GEN_NEW
-			int ri = 0;
-			camera->CastRays(primaryRaysDirections);
-			Ray r = camera.CastRayGeneral(j, i);
-			vec3 color = renderer.Trace(r, 0);
-			//camera->CastRaysAt(j, i, primaryRays[ri]);
-			primaryRay.direction = primaryRaysDirections[ri++];
-			primaryRay.dist = INFINITY;
-			primaryRay.origin = camera->position;
-			vec3 color = Trace(primaryRay, 0, intersectionCounter);
-
-#else
+	for (int y = fromY; y < toY; y++) {
+		for (int x = 0; x < SCRWIDTH; x++) {
 			camera->CastRay(primaryRay, x, y);
 			vec3 color = Trace(primaryRay, 0, dist, intersectionCounter);
 			screen->Plot(x, y, SetPixelColor(color));
-#endif
 		}
 	}
 }
@@ -367,69 +311,60 @@ void Renderer::Sim(const int fromY, const int toY)
 // -----------------------------------------------------------
 // Parallel distribution of primary rays
 // -----------------------------------------------------------
-void RenderParallel::BalanceWorkload(RenderParallel **jobs, uint nThreads)
-{
+void RenderParallel::BalanceWorkload(RenderParallel **jobs, uint nThreads) {
 	int step = 1;
 	// simple balancing between threads
-	for (uint t = 1; t < nThreads - 1; t++)
-	{
-		if (jobs[t - 1]->intersectionCounter > jobs[t]->intersectionCounter)
-		{
+	for (uint t = 1; t < nThreads - 1; t++) {
+		if (jobs[t - 1]->intersectionCounter > jobs[t]->intersectionCounter) {
 			jobs[t - 1]->toY -= step;
 			jobs[t]->fromY -= step;
-		}
-		else
-		{
+		} else {
 			jobs[t - 1]->toY += step;
 			jobs[t]->fromY += step;
 		}
 
 
-		if (jobs[t]->intersectionCounter > jobs[t + 1]->intersectionCounter)
-		{
+		if (jobs[t]->intersectionCounter > jobs[t + 1]->intersectionCounter) {
 			jobs[t]->toY -= step;
 			jobs[t + 1]->fromY -= step;
-		}
-		else
-		{
+		} else {
 			jobs[t]->toY += step;
 			jobs[t + 1]->fromY += step;
 		}
 	}
 }
 
-void RenderParallel::Main()
-{
+void RenderParallel::Main() {
 #if SIMD
 	RayPacket rays;
 	const __mVec ones = _mm_set_ps1(1.0f);
 	vec3 colors[VEC_SIZE];
 #else
 	Ray primaryRay;
+	primaryRay.type = Ray::PRIMARY;
 #endif
 	intersectionCounter = 0;
 	float dist = 0;
-	for (int y = fromY; y < toY; y++)
-	{
+	for (int y = fromY; y < toY; y++) {
 #if SIMD
 		rays.originXVec = _mm_set_ps1(renderer->camera->position.x);
 		rays.originYVec = _mm_set_ps1(renderer->camera->position.y);
 		rays.originZVec = _mm_set1_ps(renderer->camera->position.z);
-		__mVec yVec = _mm_set1_ps(y);
+		__mVec yVec = _mm_set1_ps((float)y);
 		__mVec yWeight = _mm_mul_ps(yVec, renderer->camera->dyVec);
 		yWeight = _mm_add_ps(yWeight, renderer->camera->syVec);
 		__mVec yWeightX = _mm_mul_ps(yWeight, renderer->camera->upXVec);
 		__mVec yWeightY = _mm_mul_ps(yWeight, renderer->camera->upYVec);
 		__mVec yWeightZ = _mm_mul_ps(yWeight, renderer->camera->upZVec);
-		for (int x = 0; x < (SCRWIDTH / VEC_SIZE); x++)
-		{
+		for (int x = 0; x < (SCRWIDTH / VEC_SIZE); x++) {
+			float xf = (float)x;
 			// SIMD cast many primary rays at once
 			__mVec directionXVec = renderer->camera->directionXVec;
 			__mVec directionYVec = renderer->camera->directionYVec;
 			__mVec directionZVec = renderer->camera->directionZVec;
 
-			__mVec xVec = _mVec_setr_ps(x * VEC_SIZE, x * VEC_SIZE + 1, x * VEC_SIZE + 2, x * VEC_SIZE + 3,
-									  x * VEC_SIZE + 4, x * VEC_SIZE + 5, x * VEC_SIZE + 6, x * VEC_SIZE + 7);
+			__mVec xVec = _mVec_setr_ps(xf * VEC_SIZE, xf * VEC_SIZE + 1, xf * VEC_SIZE + 2, xf * VEC_SIZE + 3,
+										xf * VEC_SIZE + 4, xf * VEC_SIZE + 5, xf * VEC_SIZE + 6, xf * VEC_SIZE + 7);
 			xVec = _mm_mul_ps(xVec, renderer->camera->dxVec);
 			xVec = _mm_add_ps(xVec, renderer->camera->sxVec);
 			directionXVec = _mm_add_ps(directionXVec, _mm_mul_ps(xVec, renderer->camera->rightXVec));
@@ -439,8 +374,8 @@ void RenderParallel::Main()
 			directionYVec = _mm_add_ps(directionYVec, yWeightY);
 			directionZVec = _mm_add_ps(directionZVec, yWeightZ);
 			__mVec distVec = _mm_add_ps(_mm_add_ps(_mm_mul_ps(directionXVec, directionXVec),
-												_mm_mul_ps(directionYVec, directionYVec)),
-									 _mm_mul_ps(directionZVec, directionZVec));
+												   _mm_mul_ps(directionYVec, directionYVec)),
+										_mm_mul_ps(directionZVec, directionZVec));
 			__mVec rec = _mm_sqrt_ps(distVec);
 			rec = _mm_div_ps(ones, rec);
 			rays.directionXVec = _mm_mul_ps(directionXVec, rec);
@@ -455,8 +390,7 @@ void RenderParallel::Main()
 		}
 
 #else
-		for (int x = 0; x < SCRWIDTH; x++)
-		{
+		for (int x = 0; x < SCRWIDTH; x++) {
 #if CAST_RAY_EVERY_FRAME
 			renderer->camera->CastRay(primaryRay, x, y);
 			vec3 color = renderer->Trace(primaryRay, 0, dist, intersectionCounter);
@@ -470,4 +404,4 @@ void RenderParallel::Main()
 #endif
 	}
 	if (info) printf("Thread %d (%d, %d): %d\n", ID, fromY, toY, intersectionCounter);
-	}
+}

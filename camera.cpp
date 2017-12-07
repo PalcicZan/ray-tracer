@@ -1,18 +1,16 @@
 #include "precomp.h"
 
 inline Camera::Camera(vec3 position, vec3 direction, float fov) :
-	position(position), direction(direction), zfar(4.0f), znear(0.0f)
-{
+	position(position), direction(direction), zfar(4.0f), znear(0.0f) {
 	aspectRatio = (float)SCRWIDTH / SCRHEIGHT;
 	SetFov(fov);
 	SetInterpolationStep();
 }
 
-void Camera::Initialize(vec3 position, vec3 direction, float fov)
-{
+void Camera::Initialize(vec3 position, vec3 direction, float fov) {
 	this->position = position;
 	this->direction = direction;
-	aspectRatio = (float)SCRWIDTH / SCRHEIGHT;
+	SetAspectRatio((float)SCRWIDTH / SCRHEIGHT);
 	SetFov(fov);
 	SetInterpolationStep();
 	UpdateCamera();
@@ -20,8 +18,7 @@ void Camera::Initialize(vec3 position, vec3 direction, float fov)
 	rotateStep = 0.0025f;
 }
 
-void Camera::SetInterpolationStep()
-{
+void Camera::SetInterpolationStep() {
 	up = vec3(0, 1.0f, 0);
 	direction.normalize();
 	right = cross(direction, up);
@@ -38,8 +35,7 @@ void Camera::SetInterpolationStep()
 	dy = (-sy - sy) / (float)SCRHEIGHT;
 }
 
-void Camera::SetFov(float deg)
-{
+void Camera::SetFov(float deg) {
 	fovDeg = deg;
 	float radFov = (fovDeg / 2 * PI) / 180.0f;
 	fov = tan(radFov);
@@ -47,20 +43,21 @@ void Camera::SetFov(float deg)
 		printf("Camera FOV: %lf\n", fov);
 }
 
-void Camera::SetTransformationMatrices()
-{
+void Camera::SetAspectRatio(float aspectRatio) {
+	this->aspectRatio = aspectRatio;
+}
+
+void Camera::SetTransformationMatrices() {
 	translation.identity();
 	rotateXMatrix.identity();
 	rotateYMatrix.identity();
 	rotateZMatrix.identity();
 }
 
-void Camera::Move(Direction dir, float deltaTime)
-{
+void Camera::Move(Direction dir, float deltaTime) {
 	printf("%lf \n", deltaTime);
 	float speed = moveStep * deltaTime;
-	switch (dir)
-	{
+	switch (dir) {
 	case Camera::Direction::FORWARD:
 		position += speed * direction;
 		break;
@@ -84,18 +81,14 @@ void Camera::Move(Direction dir, float deltaTime)
 }
 
 // derived from https://stackoverflow.com/questions/34378214/how-to-move-around-camera-using-mouse-in-opengl
-void Camera::LookAt(vec3 offset)
-{
-	float step = rotateStep;
+void Camera::LookAt(vec3 offset, float deltaTime) {
+	float step = rotateStep * deltaTime;
 	xa += step * offset.x;
 	ya -= step * offset.z;
 
-	if (ya > PI / 2.0f)
-	{
+	if (ya > PI / 2.0f) {
 		ya = PI / 2.0f - 0.0001f;
-	}
-	else if (ya < -PI / 2.0f)
-	{
+	} else if (ya < -PI / 2.0f) {
 		ya = -PI / 2.0f + 0.0001f;
 	}
 
@@ -119,8 +112,7 @@ void Camera::LookAt(vec3 offset)
 #endif
 }
 
-void Camera::UpdateCamera()
-{
+void Camera::UpdateCamera() {
 #if SIMD
 	directionXVec = _mm_set1_ps(this->direction.x);
 	directionYVec = _mm_set1_ps(this->direction.y);
@@ -138,26 +130,23 @@ void Camera::UpdateCamera()
 #endif
 }
 
-void Camera::ChangePerspective()
-{
+void Camera::ChangePerspective() {
 	pm0 = toVec3(translation * (rotateZMatrix * (rotateYMatrix * (rotateXMatrix * vec4(p0, 0.0f)))));
 	pm1 = toVec3(translation * (rotateZMatrix * (rotateYMatrix * (rotateXMatrix * vec4(p1, 0.0f)))));
 	pm2 = toVec3(translation * (rotateZMatrix * (rotateYMatrix * (rotateXMatrix * vec4(p2, 0.0f)))));
 	positionm = toVec3(translation * (rotateZMatrix * (rotateYMatrix * (rotateXMatrix * vec4(position, 1.0f)))));
 }
 
-vec3 Camera::Transform(mat4 transformMatrix, vec3 vec)
-{
+vec3 Camera::Transform(mat4 transformMatrix, vec3 vec) {
 	vec4 temp = vec4(vec.x, vec.y, vec.z, 1.0f);
 	temp = temp * transformMatrix;
 	return vec3(temp.x, temp.y, temp.z);
 }
 
-Ray Camera::CastRay(int x, int y)
-{
+Ray Camera::CastRay(int x, int y) {
 	// prepare vector just add x*dx and y*dy
 	vec3 origin = this->position;
-	vec3 direction = vec3(sx + x*dx, sy + y*dy, 0) - origin;
+	vec3 direction = vec3(sx + x * dx, sy + y * dy, 0) - origin;
 	direction.normalize();
 	origin = toVec3(translation * vec4(vec3(0.0f), 1.0f));
 	direction = toVec3(translation *  vec4(direction, 1.0f));
@@ -165,8 +154,7 @@ Ray Camera::CastRay(int x, int y)
 }
 
 // cast new ray
-Ray Camera::CastRayGeneral(int x, int y)
-{
+Ray Camera::CastRayGeneral(int x, int y) {
 	vec3 origin = this->position;
 	vec3 direction = this->direction;
 	direction += (sx + (float)x*dx) * this->right;
@@ -176,8 +164,7 @@ Ray Camera::CastRayGeneral(int x, int y)
 }
 
 // cast/change one ray
-void Camera::CastRay(Ray &primaryRay, int x, int y)
-{
+void Camera::CastRay(Ray &primaryRay, int x, int y) {
 	vec3 origin = this->position;
 	vec3 direction = this->direction;
 	direction += (sx + (float)x*dx) * this->right;
@@ -188,9 +175,8 @@ void Camera::CastRay(Ray &primaryRay, int x, int y)
 	primaryRay.dist = INFINITY;
 }
 
-// cast all rays at once
-void Camera::CastRays(vec3 *primaryRaysDirection)
-{
+// cast all rays at once - DEPRECATED
+void Camera::CastRays(vec3 *primaryRaysDirection) {
 #if 1
 	const __m256 dirX = _mm256_set1_ps(this->direction.x);
 	const __m256 dirY = _mm256_set1_ps(this->direction.y);
@@ -210,16 +196,14 @@ void Camera::CastRays(vec3 *primaryRaysDirection)
 	union { __m256 dirNormY; float dy_[8]; };
 	union { __m256 dirNormZ; float dz_[8]; };
 	int i = 0;
-	for (int y = 0; y < SCRHEIGHT; y++)
-	{
-		__m256 y8 = _mm256_set1_ps(y);
+	for (int y = 0; y < SCRHEIGHT; y++) {
+		__m256 y8 = _mm256_set1_ps(float(y));
 		__m256 yWeight = _mm256_mul_ps(y8, dy8);
 		yWeight = _mm256_add_ps(yWeight, sy8);
 		__m256 yWeightX = _mm256_mul_ps(yWeight, uX);
 		__m256 yWeightY = _mm256_mul_ps(yWeight, uY);
 		__m256 yWeightZ = _mm256_mul_ps(yWeight, uZ);
-		for (int x = 0; x < SCRWIDTH / VEC_SIZE; x++)
-		{
+		for (int x = 0; x < SCRWIDTH / VEC_SIZE; x++) {
 			__m256 calDirX = dirX;
 			__m256 calDirY = dirY;
 			__m256 calDirZ = dirZ;
@@ -238,8 +222,7 @@ void Camera::CastRays(vec3 *primaryRaysDirection)
 			dirNormX = _mm256_mul_ps(calDirX, rec);
 			dirNormY = _mm256_mul_ps(calDirY, rec);
 			dirNormZ = _mm256_mul_ps(calDirZ, rec);
-			for (int j = 0; j < VEC_SIZE; j++)
-			{
+			for (int j = 0; j < VEC_SIZE; j++) {
 				primaryRaysDirection[i + j].x = dx_[j];
 				primaryRaysDirection[i + j].y = dy_[j];
 				primaryRaysDirection[i + j].z = dz_[j];
@@ -250,8 +233,7 @@ void Camera::CastRays(vec3 *primaryRaysDirection)
 #else
 	vec3 origin = this->position;
 	int i = 0;
-	for (int y = 0; y < SCRHEIGHT; y++) for (int x = 0; x < SCRWIDTH; x++)
-	{
+	for (int y = 0; y < SCRHEIGHT; y++) for (int x = 0; x < SCRWIDTH; x++) {
 		vec3 direction = this->direction;
 		direction += (sx + (float)x*dx) * this->right;
 		direction += (sy + (float)y*dy) * this->up;

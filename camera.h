@@ -17,17 +17,18 @@ public:
 	// initialization and setters
 	void Initialize(vec3 position, vec3 direction, float fov);
 	void SetFov(float deg);
+	void SetAspectRatio(float aspectRatio);
 	void SetInterpolationStep();
 	void SetTransformationMatrices();
 
 	// user interface with up/down/right vectors
 	void Move(Direction dir, float deltaTime);
-	void LookAt(vec3 newDirection);
+	void LookAt(vec3 newDirection, float deltaTime);
 	void UpdateCamera();
 
 	// user interface with matrices
 	void ChangePerspective();
-	vec3 Transform(mat4 transformMatrix, vec3 vec); 
+	vec3 Transform(mat4 transformMatrix, vec3 vec);
 
 	// cast rays handles
 	Ray CastRay(int x, int y);
@@ -36,7 +37,7 @@ public:
 	// generate all rays directions on screen once, update on user interface
 	void CastRays(vec3 *primaryRayDirections);
 	void CastMany(RayPacket rays, int x, int y);
-	vec3 GetPosition() { return position; }; 
+	vec3 GetPosition() { return position; };
 	float GetFov() { return fovDeg; };
 	vec3 position;
 

@@ -21,7 +21,7 @@ struct RayLine {
 	union { __declspec(align(ALIGNMENT)) float originZ[SCRWIDTH]; __mVec originZVec[SCRWIDTH / VEC_SIZE]; };
 	union { __declspec(align(ALIGNMENT)) float directionX[SCRWIDTH]; __mVec directionXVec[SCRWIDTH / VEC_SIZE]; };
 	union { __declspec(align(ALIGNMENT)) float directionY[SCRWIDTH]; __mVec directionYVec[SCRWIDTH / VEC_SIZE]; };
-	union { __declspec(align(ALIGNMENT)) float directionZ[SCRWIDTH]; __mVec directionZVec[SCRWIDTH / VEC_SIZE];	};
+	union { __declspec(align(ALIGNMENT)) float directionZ[SCRWIDTH]; __mVec directionZVec[SCRWIDTH / VEC_SIZE]; };
 	union { __declspec(align(ALIGNMENT)) float dist[SCRWIDTH];  __mVec distVec[SCRWIDTH / VEC_SIZE]; };
 };
 

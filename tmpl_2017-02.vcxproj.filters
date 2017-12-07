@@ -34,7 +34,6 @@
     <ClInclude Include="scene.h" />
     <ClInclude Include="tiny_oby_loader.h" />
     <ClInclude Include="settings.h" />
-    <ClInclude Include="stb_image.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="template code">
