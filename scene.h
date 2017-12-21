@@ -1,5 +1,25 @@
 #pragma once
 
+struct AABB {
+	vec3 min, max;
+	// represent with d
+	float GetArea() const {
+		float dx = max.x - min.x; float dy = max.y - min.y; float dz = max.z - min.z;
+		return 2.0f * (dx * dy + dx * dz + dy * dz);
+	};
+
+	bool GetIntersection(Ray &ray);
+	void Merge(AABB &neighbourAABB) {
+		min.x = min(min.x, neighbourAABB.min.x);
+		min.y = min(min.y, neighbourAABB.min.y);
+		min.z = min(min.z, neighbourAABB.min.z);
+
+		max.x = max(max.x, neighbourAABB.max.x);
+		max.y = max(max.y, neighbourAABB.max.y);
+		max.z = max(max.z, neighbourAABB.max.z);
+	}
+};
+
 class Texture {
 public:
 	Texture() {};
@@ -70,7 +90,6 @@ public:
 	virtual vec3 GetColor(vec3 &I, float &u, float &v) = 0;
 	void SetTexture(Texture* t);
 	void SetBumpMap(Texture* b);
-
 	LightType lightType = LightType::NONE;
 	float intensity;
 	vec3 position;
@@ -113,22 +132,26 @@ public:
 	Triangle() {};
 	Triangle(vec3 v0, vec3 v1, vec3 v2, Material material) :
 		Primitive(v1, material), v0(v0), v1(v1), v2(v2) {
+		// normal and centorid
 		N = normalize(cross(v1 - v0, v2 - v0));
+		c = (v0 + v1 + v2) * (1.0f / 3.0f);
+		position = (v0 + v1 + v2) * (1.0f / 3.0f);
 	};
 	int GetType() { return TRIANGLE; };
-	vec3 GetNormal(vec3 &I) { 
+	vec3 GetNormal(vec3 &I) {
 		return N;
 	};
 	vec3 GetSmoothNormal(vec3 &I, float u, float v) {
 		return normalize((1 - u - v) * n1 + u * n2 + v * n3);
 	}
 	bool GetIntersection(Ray &ray, float &u, float &v);
-	void GetIntersections(RayPacket & rays, __mVec & mask, __mVec &uVec, __mVec &vVec);
+	void GetIntersections(RayPacket &rays, __mVec &mask, __mVec &uVec, __mVec &vVec);
 	vec3 GetColor(vec3 &I, float &u, float &v);
+	void GetAABB(AABB &aabb);
 	void SetVertexNormals(vec3 n1, vec3 n2, vec3 n3) { this->n1 = n1; this->n2 = n2; this->n3 = n3; }
-private:
-	vec3 v0, v1, v2, N;
-	vec3 n1, n2, n3;
+
+	vec3 v0, v1, v2, N, c; // verteces, normal and centroid
+	vec3 n1, n2, n3; // vertex normals
 	float u, v;
 };
 
@@ -138,6 +161,7 @@ public:
 	~Scene();
 	void Initialize();
 	Primitive * GetNearestIntersection(Ray & r, float &u, float &v, int &intersectionCounter);
+	Primitive * GetNearestIntersection(Ray & r, float & u, float & v, int & intersectionCounter, Primitive ** primitives);
 	void GetNearestIntersections(RayPacket &rays, __mVec &primitives, __mVec &uVec, __mVec &vVec, int &intersectionCounter);
 	Primitive * GetAnyIntersection(Ray & r, float maxDist, int &intersectionCounter);
 	int LoadObj(string inputfile, int numOfPrimitives, vec3 objOffset, Primitive **& primitives);

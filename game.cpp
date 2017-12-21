@@ -2,12 +2,21 @@
 
 static Camera camera;
 static Scene scene;
-static Renderer renderer;
+static Renderer *renderer;
+static BVH *bvh;
+#if MEASURE_PERFORMANCE
+static timer t;
+
+// time counters
+static float bvhConstuction;
+static float bvhTraverse;
+static float bvhAll = 0.0f;
+static int frame = 0;
+#endif
 #if OPTIMIZE
 static JobManager *jm;
 static RenderParallel *renderJob[NUM_OF_THREADS];
 #endif
-static int frame = 0;
 
 // -----------------------------------------------------------
 // Initialize the application
@@ -18,7 +27,15 @@ void Game::Init() {
 	// initialize custom scene
 	scene.Initialize();
 	// initialize renderer with camera and scene
-	renderer.Initialize(&camera, &scene, screen);
+	renderer = new Renderer(&camera, &scene, screen);
+	//renderer.Initialize(&camera, &scene, screen);
+
+#if USE_BVH
+	bvh = new BVH();	
+	bvh->SetSplitMethod(BVH::SplitMethod::ExhaustiveSAH);
+	bvh->ConstructBVH(renderer->scene->GetPrimitives(), renderer->scene->GetNumberOfPrimitives() - renderer->scene->GetNumberOfLights());
+	renderer->SetBVH(bvh);
+#endif
 
 #if OPTIMIZE
 	JobManager::CreateJobManager(NUM_OF_THREADS);
@@ -26,7 +43,7 @@ void Game::Init() {
 	int sy = 0;
 	int ey = SCRHEIGHT / NUM_OF_THREADS;
 	for (int i = 0; i < NUM_OF_THREADS; i++) {
-		renderJob[i] = new RenderParallel(i, sy, ey, &renderer);
+		renderJob[i] = new RenderParallel(i, sy, ey, *renderer);
 		sy += SCRHEIGHT / NUM_OF_THREADS;
 		ey += SCRHEIGHT / NUM_OF_THREADS;
 	}
@@ -65,7 +82,6 @@ void Game::KeyUp(int key) {
 }
 
 void Game::KeyDown(int key) {
-	printf("%d \n", key);
 	switch (key) {
 	case SDL_SCANCODE_W:
 		camera.Move(Camera::Direction::FORWARD, deltaTime);
@@ -100,6 +116,34 @@ void Game::KeyDown(int key) {
 		camera.SetInterpolationStep();
 		camera.UpdateCamera();
 		break;
+	case SDL_SCANCODE_I:
+		printf("Avg time BVH ALL: %.3lf ms; Time of BVH traverse: %.3lf ms; Time of BVH construction: %.3lf ms; Speed up: %.3lfx \nNum of threads: %d\n",
+			   bvhAll / (++frame), bvhTraverse, bvhConstuction, REF_SPEED_TREE / (bvhTraverse + bvhConstuction), NUM_OF_THREADS);
+		toggleInfoView = !toggleInfoView;
+		break;
+	case SDL_SCANCODE_1:
+		renderer->toggleRenderView = (renderer->toggleRenderView + 1) % 3;
+		break;
+	case SDL_SCANCODE_2:
+		renderer->toggleSplitMethod = (renderer->toggleSplitMethod + 1) % 2;
+		switch (renderer->toggleSplitMethod) {
+		case 0:
+			renderer->bvh->SetSplitMethod(BVH::SplitMethod::Median);
+			break;
+		case 1:
+			renderer->bvh->SetSplitMethod(BVH::SplitMethod::ExhaustiveSAH);
+			break;
+		case 2:
+			renderer->bvh->SetSplitMethod(BVH::SplitMethod::Median);
+			break;
+		default:
+			renderer->bvh->SetSplitMethod(BVH::SplitMethod::Median);
+			break;
+		}
+		break;
+	case SDL_SCANCODE_3:
+		renderer->enableBvhReconstruction ^= 1;
+		break;
 	}
 }
 
@@ -110,11 +154,50 @@ void Game::Tick(float deltaTime) {
 	this->deltaTime = deltaTime;
 	// clear the graphics window
 	screen->Clear(scene.GetBackgroundP());
+	// construct BVH when necessary
+	bvhConstuction = 0.0f;
+	if (renderer->enableBvhReconstruction) {
+		t.reset();
+		bvh->ReconstructBVH(renderer->scene->GetPrimitives(), renderer->scene->GetNumberOfPrimitives() - renderer->scene->GetNumberOfLights());
+		renderer->SetBVH(bvh);
+		bvhConstuction = t.elapsed();
+	}
 #if OPTIMIZE
 	RenderParallel::BalanceWorkload(renderJob, jm->GetNumThreads());
 	for (int i = 0; i < NUM_OF_THREADS; i++) jm->AddJob2(renderJob[i]);
+#if MEASURE_PERFORMANCE
+	t.reset();
 	jm->RunJobs();
-	screen->Print("Whitted ray tracer v1.00 Beta", 2, 2, 0xffffffff);
+	bvhTraverse = t.elapsed();
+	bvhAll += bvhTraverse + bvhConstuction;
+	++frame;
+	if (toggleInfoView) {
+		int offset = 2;
+		char buff[100];
+		screen->Print("Whitted ray tracer v1.00 Beta", 2, offset, 0xffffffff);
+		sprintf(buff, "Num of primitives: %d", scene.GetNumberOfPrimitives());
+		offset += 7;
+		screen->Print(buff, 2, offset, 0xffffffff);
+		sprintf(buff, "Time of BVH construction: %.3lf ms", bvhConstuction);
+		offset += 7;
+		screen->Print(buff, 2, offset, 0xffffffff);
+		sprintf(buff, "Time of BVH traverse: %.3lf ms", bvhTraverse);
+		offset += 7;
+		screen->Print(buff, 2, offset, 0xffffffff);
+		float currAll = bvhAll / (++frame);
+		sprintf(buff, "Avg time BVH ALL: %.3lf ms", currAll);
+		offset += 7;
+		screen->Print(buff, 2, offset, 0xffffffff);
+		sprintf(buff, "Speed up: %.2lfx ", REF_SPEED_TREE / currAll);
+		offset += 7;
+		screen->Print(buff, 2, offset, 0xffffffff);
+		sprintf(buff, "Num of threads: %d", NUM_OF_THREADS);
+		offset += 7;
+		screen->Print(buff, 2, offset, 0xffffffff);
+	}
+#else
+	jm->RunJobs();
+#endif
 #else
 	// Sim whole screen
 	renderer.Sim(0, SCRHEIGHT);

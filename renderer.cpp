@@ -9,6 +9,13 @@ void Renderer::Initialize(Camera *camera, Scene *scene, Surface *screen) {
 	this->screen = screen;
 }
 
+void Renderer::Initialize(Camera * camera, Scene * scene, Surface * screen, BVH * bvh) {
+	this->camera = camera;
+	this->scene = scene;
+	this->screen = screen;
+	this->bvh = bvh;
+}
+
 inline void Renderer::Reflect(Ray &ray, vec3 &I, vec3 &N, float &DN) {
 	ray.direction = ray.direction - 2 * (DN)*N;
 	ray.origin = I;
@@ -54,7 +61,7 @@ inline vec3 Renderer::GetSpecularIllumination(Ray &shadowRay, Ray &reflectedRay,
 
 inline vec3 Renderer::GetDirectAndSpecularIllumination(vec3 I, vec3 N, Ray &ray, float &u, float &v, Primitive* hitPrimitive, int &intersectionCounter) {
 	Primitive **lights = scene->GetLights();
-	Primitive *shadowPrimitive;
+	Primitive *shadowPrimitive = nullptr;
 	vec3 directColor(0.0f);
 	vec3 specularColor(0.0f);
 	Ray shadowRay;
@@ -68,7 +75,12 @@ inline vec3 Renderer::GetDirectAndSpecularIllumination(vec3 I, vec3 N, Ray &ray,
 			// get any intersection between light and object - limitation dielectric material casts shadows
 			shadowRay.dist = INFINITY;
 			float shadowRayDistance = dot(orgDir, orgDir);
+#if USE_BVH
+			int depthCounter = 0;
+			bvh->pool[0].TraverseAny(shadowRay, *bvh, &shadowPrimitive, intersectionCounter, depthCounter);
+#else
 			shadowPrimitive = scene->GetAnyIntersection(shadowRay, shadowRayDistance, intersectionCounter);
+#endif
 			// not in the shadow
 			if (shadowPrimitive == nullptr) {
 				vec3 lightContribution = lights[i]->GetLightIntensity(shadowRayDistance);
@@ -116,9 +128,26 @@ vec3 Renderer::Trace(Ray& ray, int depth, float& dist, int& intersectionCounter)
 
 	// check for nearest intersection
 	float u = 1, v = 0;
-	Primitive *hitPrimitive = scene->GetNearestIntersection(ray, u, v, intersectionCounter);
-	if (hitPrimitive == nullptr) return scene->GetBackground();
-	else if (hitPrimitive->lightType != Primitive::LightType::NONE) return hitPrimitive->GetLightIntensity((camera->position - hitPrimitive->position).length());
+	Primitive *hitPrimitive = nullptr;
+#if USE_BVH
+	int depthCounter = 0;
+	bvh->pool[0].Traverse(ray, *bvh, &hitPrimitive, intersectionCounter, depthCounter);
+#else
+	hitPrimitive = scene->GetNearestIntersection(ray, u, v, intersectionCounter);
+#endif
+	if (hitPrimitive == nullptr) {
+#if MEASURE_PERFORMANCE
+		if (toggleRenderView == 1) {
+			return (scene->GetBackground() + vec3(0.02f*depthCounter, 0.0f, 0.0f))*0.5f;
+		} else if (toggleRenderView == 2) {
+			return vec3(0.01f*depthCounter, 0.0f, 0.0f);
+		} else {
+			return scene->GetBackground();
+		}
+#else
+		return scene->GetBackground();
+#endif
+	} else if (hitPrimitive->lightType != Primitive::LightType::NONE) return hitPrimitive->GetLightIntensity((camera->position - hitPrimitive->position).length());
 
 	vec3 illumination(0.0f);
 	dist = ray.dist;
@@ -144,8 +173,7 @@ vec3 Renderer::Trace(Ray& ray, int depth, float& dist, int& intersectionCounter)
 		// handling partially reflective materials
 		if (specular > 0.0f)
 			illumination += specular * Trace(ray, depth + 1, distRefr, intersectionCounter);
-
-		return illumination;
+		break;
 	}
 	case Material::DIELECTRICS:
 	{
@@ -179,16 +207,26 @@ vec3 Renderer::Trace(Ray& ray, int depth, float& dist, int& intersectionCounter)
 			refractedRay.origin += fixOffset;
 			vec3 refractionColor = Trace(refractedRay, depth + 1, distRefr, intersectionCounter);
 			vec3 attenuation = hitPrimitive->GetColor(I, u, v) * hitPrimitive->material.absorption * -distRefr;
-			vec3 absorption = vec3(expf(attenuation.x), expf(attenuation.y), expf(attenuation.z)); // = 1.0f;
+			vec3 absorption = vec3(expf(attenuation.x), expf(attenuation.y), expf(attenuation.z));
 			illumination += absorption * (1.0f - fr) *  refractionColor;
 		} else {
 			// all energy to reflection
 			illumination += Trace(ray, depth + 1, distRefl, intersectionCounter);
 		}
+		break;
+	}
+	}
+#if MEASURE_PERFORMANCE
+	if (toggleRenderView == 1) {
+		return (vec3(0.02f*depthCounter, 0.0f, 0.0f) + illumination)*0.5f;
+	} else if (toggleRenderView == 2) {
+		return vec3(0.01f*depthCounter, 0.0f, 0.0f);
+	} else {
 		return illumination;
 	}
-	}
+#else
 	return illumination;
+#endif
 }
 
 void Renderer::TraceMany(RayPacket& rays, vec3 *colors, int depth, float& dist, int& intersectionCounter) {
@@ -200,7 +238,7 @@ void Renderer::TraceMany(RayPacket& rays, vec3 *colors, int depth, float& dist, 
 	// check for nearest intersection
 	Primitive **primitives = scene->GetPrimitives();
 	scene->GetNearestIntersections(rays, intersectionMask, uVec, vVec, intersectionCounter);
-	
+
 	union { float Ix[VEC_SIZE]; __mVec IVecX; };
 	union { float Iy[VEC_SIZE]; __mVec IVecY; };
 	union { float Iz[VEC_SIZE]; __mVec IVecZ; };
@@ -392,14 +430,14 @@ void RenderParallel::Main() {
 #else
 		for (int x = 0; x < SCRWIDTH; x++) {
 #if CAST_RAY_EVERY_FRAME
-			renderer->camera->CastRay(primaryRay, x, y);
-			vec3 color = renderer->Trace(primaryRay, 0, dist, intersectionCounter);
+			renderer.camera->CastRay(primaryRay, x, y);
+			vec3 color = renderer.Trace(primaryRay, 0, dist, intersectionCounter);
 #else
 			primaryRay.origin = renderer->camera->position;
 			primaryRay.dist = INFINITY;
 
 #endif
-			renderer->screen->Plot(x, y, SetPixelColor(color));
+			renderer.screen->Plot(x, y, SetPixelColor(color));
 		}
 #endif
 	}

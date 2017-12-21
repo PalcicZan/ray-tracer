@@ -10,7 +10,7 @@ Scene::~Scene() {
 
 void Scene::Initialize() {
 	// create artificial scene
-#if SIMPLE_SCENE
+#if SIMPLE_SCENE == 1
 	nPrimitives = 8;
 	int loadedPrimitives = 0;
 	Texture *bricks = new Texture();
@@ -46,7 +46,7 @@ void Scene::Initialize() {
 	// glass sphere
 	primitives[offset++] = new Sphere(vec3(-2, -1.0f, -4), 1.0f, Material(Material::DIELECTRICS, vec3(0.9f, 0.9f, 0.9f), 0.0, 0.0f, 0.7f, 20.0, Material::RefractionInd::GLASS));
 	// green sphere
-	primitives[offset] = new Sphere(vec3(1, -1.5f, -6), 0.5f, Material(Material::DIFFUSE, vec3(0.133f, 0.545f, 0.133f), 0, 1.0f, 0.1f, 3.0));
+	primitives[offset] = new Sphere(vec3(1, -1.5f, -6), 0.5f, Material(Material::DIFFUSE, vec3(0.133f, 0.545f, 0.133f), 0.0, 1.0f, 0.4f, 20.0));
 	primitives[offset++]->SetTexture(rock);
 	// red sphere
 	primitives[offset] = new Sphere(vec3(-2, -1.5f, -9), 1.5f, Material(Material::DIFFUSE, vec3(0.533f, 0.133f, 0.133f), 0, 1.0f, 0.1f, 20.0));
@@ -63,8 +63,7 @@ void Scene::Initialize() {
 	primitives[offset++]->SetTexture(grid);
 	nPlanes = offset - nSpheres - nTriangles;
 	planes = (Plane**)&primitives[offset - nPlanes];
-#else
-
+#elif SIMPLE_SCENE == 2
 	nPrimitives = 2;
 	int loadedPrimitives = 0;
 	//loadedPrimitives = LoadObj("assets/bunny_200.obj", nPrimitives, vec3(0.0f, 0.0f, -3.0f), primitives);
@@ -75,19 +74,30 @@ void Scene::Initialize() {
 	if (!offset)
 		primitives = new Primitive*[nPrimitives];
 	nPrimitives += loadedPrimitives;
+#elif SIMPLE_SCENE == 3
+	nPrimitives = 2;
+	int loadedPrimitives = 0;
+	//loadedPrimitives = LoadObj("assets/bunny_200.obj", nPrimitives, vec3(0.0f, 0.0f, -3.0f), primitives);
+	loadedPrimitives = LoadObj("assets/white_oak.obj", nPrimitives, vec3(0.0f, -1000.0f, -1000.0f), primitives);
+	int offset = loadedPrimitives;
+	nTriangles = offset;
+	triangles = (Triangle**)&primitives[offset - nTriangles];
+	if (!offset)
+		primitives = new Primitive*[nPrimitives];
+	nPrimitives += loadedPrimitives;
 #endif
 
 	// lights
 	primitives[offset] = new Sphere(vec3(-5, 7, -7), 0.1f, Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0, 1.0f, 0.0f, 0.0));
-	primitives[offset]->lightType = Primitive::LightType::POINT;
-	primitives[offset++]->intensity = 100.0f;
+	primitives[offset]->lightType = Primitive::LightType::INF;
+	primitives[offset++]->intensity = 1.0f;
 	primitives[offset] = new Sphere(vec3(8, 7, -2), 0.1f, Material(Material::DIFFUSE, vec3(1.000, 1.000, 0.878), 0, 1.0f, 0.0f, 0.0));
-	primitives[offset]->lightType = Primitive::LightType::POINT;
-	primitives[offset++]->intensity = 50.2f;
+	primitives[offset]->lightType = Primitive::LightType::INF;
+	primitives[offset++]->intensity = 1.2f;
 	nLights = offset - nPlanes - nSpheres - nTriangles;
 
 	lights = &primitives[nPrimitives - nLights];
-	SetBackground(vec3(0.0f, 0.0f, 0.0f));
+	SetBackground(vec3(0.6f, 0.6f, 0.6f));
 }
 
 void Scene::SetBackground(vec3 color) {
@@ -104,6 +114,17 @@ Primitive* Scene::GetNearestIntersection(Ray &r, float &u, float &v, int &inters
 	}
 	return hitPrimitive;
 }
+
+Primitive* Scene::GetNearestIntersection(Ray &r, float &u, float &v, int &intersectionCounter, Primitive **primitives) {
+	Primitive *hitPrimitive = nullptr;
+	for (int k = 0; k < nPrimitives; k++) {
+		intersectionCounter++;
+		if (primitives[k]->GetIntersection(r, u, v))
+			hitPrimitive = primitives[k];
+	}
+	return hitPrimitive;
+}
+
 
 void Scene::GetNearestIntersections(RayPacket &rays, __mVec &maskVec, __mVec &uVec, __mVec &vVec, int& intersectionCounter) {
 	__mVec primMaskVec;
@@ -385,7 +406,25 @@ vec3  Triangle::GetColor(vec3 &I, float &u, float &v) {
 	} else {
 		return u * material.color + v * material.color2 + (1 - u - v) * material.color3;
 	}
-};
+}
+
+void Triangle::GetAABB(AABB &aabb) {
+	aabb.min = v0;
+	aabb.max = v0;
+	if (v1.x < aabb.min.x) aabb.min.x = v1.x;
+	if (v1.y < aabb.min.y) aabb.min.y = v1.y;
+	if (v1.z < aabb.min.z) aabb.min.z = v1.z;
+	if (v1.x > aabb.max.x) aabb.max.x = v1.x;
+	if (v1.y > aabb.max.y) aabb.max.y = v1.y;
+	if (v1.z > aabb.max.z) aabb.max.z = v1.z;
+
+	if (v2.x < aabb.min.x) aabb.min.x = v2.x;
+	if (v2.y < aabb.min.y) aabb.min.y = v2.y;
+	if (v2.z < aabb.min.z) aabb.min.z = v2.z;
+	if (v2.x > aabb.max.x) aabb.max.x = v2.x;
+	if (v2.y > aabb.max.y) aabb.max.y = v2.y;
+	if (v2.z > aabb.max.z) aabb.max.z = v2.z;
+}
 
 // Möller–Trumbore intersection algorithm
 bool Triangle::GetIntersection(Ray &ray, float &u, float &v) {
@@ -473,4 +512,22 @@ void Texture::LoadTexture(char * filename) {
 		color[k++] = getPixelColor(data[i*width + j]);
 	}
 	delete temp;
+}
+
+bool AABB::GetIntersection(Ray &ray) {
+	float t1 = (min.x - ray.origin.x)*(1.0f / ray.direction.x);
+	float t2 = (max.x - ray.origin.x)*(1.0f / ray.direction.x);
+
+	float tmin = min(t1, t2);
+	float tmax = max(t1, t2);
+
+	for (int i = 1; i < 3; i++) {
+		t1 = (min[i] - ray.origin[i])*(1.0f / ray.direction[i]);
+		t2 = (max[i] - ray.origin[i])*(1.0f / ray.direction[i]);
+
+		tmin = max(tmin, min(min(t1, t2), tmax));
+		tmax = min(tmax, max(max(t1, t2), tmin));
+	}
+
+	return tmax > max(tmin, 0.0);
 }

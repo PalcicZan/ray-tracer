@@ -15,6 +15,7 @@ public:
 	void KeyDown(int key);
 private:
 	bool handleCameraRotation;
+	uint toggleInfoView;
 	float deltaTime;
 	Surface* screen;
 };

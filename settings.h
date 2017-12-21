@@ -2,24 +2,41 @@
 
 // renderer 
 #define OPTIMIZE 1
+#if OPTIMIZE
 #define NUM_OF_THREADS 4
-#define EPSILON  0.0001f
+#else
+#define NUM_OF_THREADS 1
+#endif
+#define USE_BVH 1
+#define REF_SPEED_TREE 1313.897
+
+#define EPSILON  0.0001f // smaller epsilon for large scenes
 #define MAX_DEPTH 3
 #define CAST_RAY_EVERY_FRAME 1
+#define MEASURE_PERFORMANCE 1
+#define SHOW_INFO 1
+
+// bvh
+#define MIN_PRIMITIVES_PER_LEAF 3
+// partition method
+#define SAH 1
+#define MEDIAN 1
+
+// camera
+#define PRIMARY_SAMPLES 1 //currently not supported
+
+// scene
+#define SIMPLE_SCENE 2 // 0 loads simple obj file
+// select scene
 
 // SIMD
 #define WITHOUT 0
 #define SSE4 1
 #define AVX 2
 
-#define SIMD AVX
+#define CACHE_LINE 32
 
-
-// camera
-#define PRIMARY_SAMPLES 1 //currently not supported
-
-// scene
-#define SIMPLE_SCENE 1 // 0 loads simple obj file
+#define SIMD 0
 
 #if SIMD == SSE4
 #define VEC_SIZE 4

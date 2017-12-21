@@ -38,9 +38,8 @@ void Camera::SetInterpolationStep() {
 void Camera::SetFov(float deg) {
 	fovDeg = deg;
 	float radFov = (fovDeg / 2 * PI) / 180.0f;
-	fov = tan(radFov);
-	if (info)
-		printf("Camera FOV: %lf\n", fov);
+	fov = tanf(radFov);
+	if (info) printf("Camera FOV: %lf\n", fov);
 }
 
 void Camera::SetAspectRatio(float aspectRatio) {
@@ -55,7 +54,6 @@ void Camera::SetTransformationMatrices() {
 }
 
 void Camera::Move(Direction dir, float deltaTime) {
-	printf("%lf \n", deltaTime);
 	float speed = moveStep * deltaTime;
 	switch (dir) {
 	case Camera::Direction::FORWARD:
@@ -207,7 +205,7 @@ void Camera::CastRays(vec3 *primaryRaysDirection) {
 			__m256 calDirX = dirX;
 			__m256 calDirY = dirY;
 			__m256 calDirZ = dirZ;
-			__m256 x8 = _mm256_setr_ps(x * 8, x * 8 + 1, x * 8 + 2, x * 8 + 3, x * 8 + 4, x * 8 + 5, x * 8 + 6, x * 8 + 7);
+			__m256 x8 = _mm256_setr_ps((float)x * 8, (float)x * 8 + 1, (float)x * 8 + 2, (float)x * 8 + 3, (float)x * 8 + 4, (float)x * 8 + 5, (float)x * 8 + 6, (float)x * 8 + 7);
 			x8 = _mm256_mul_ps(x8, dx8);
 			x8 = _mm256_add_ps(x8, sx8);
 			calDirX = _mm256_add_ps(calDirX, _mm256_mul_ps(x8, rX));

@@ -45,5 +45,6 @@ using namespace Tmpl8;
 #include "ray.h"
 #include "scene.h"
 #include "camera.h"
+#include "bvh.h"
 #include "renderer.h"
 #include "game.h"
