@@ -34,9 +34,10 @@ public:
 	Ray CastRay(int x, int y);
 	Ray CastRayGeneral(int x, int y);
 	void CastRay(Ray &primaryRay, int x, int y);
+	void CastRayPacket(RayPacket &rayPacket, int x, int y);
 	// generate all rays directions on screen once, update on user interface
 	void CastRays(vec3 *primaryRayDirections);
-	void CastMany(RayPacket rays, int x, int y);
+	void CastMany(Rays rays, int x, int y);
 	vec3 GetPosition() { return position; };
 	float GetFov() { return fovDeg; };
 	vec3 position;

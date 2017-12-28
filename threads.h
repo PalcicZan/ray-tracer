@@ -73,7 +73,7 @@ protected:
 	static JobManager* m_JobManager;
 	Job* m_JobList[64];
 	CRITICAL_SECTION m_CS;
-	HANDLE m_ThreadDone[4];
+	HANDLE m_ThreadDone[NUM_OF_THREADS];
 	unsigned int m_NumThreads, m_JobCount;
 	JobThread* m_JobThreadList;
 };

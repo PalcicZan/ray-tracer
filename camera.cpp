@@ -163,14 +163,22 @@ Ray Camera::CastRayGeneral(int x, int y) {
 
 // cast/change one ray
 void Camera::CastRay(Ray &primaryRay, int x, int y) {
-	vec3 origin = this->position;
 	vec3 direction = this->direction;
 	direction += (sx + (float)x*dx) * this->right;
 	direction += (sy + (float)y*dy) * this->up;
 	direction.normalize();
-	primaryRay.origin = origin;
+	primaryRay.origin = this->position;
 	primaryRay.direction = direction;
 	primaryRay.dist = INFINITY;
+}
+
+void Camera::CastRayPacket(RayPacket &rayPacket, int x, int y) {
+	int k = 0;
+	for (int i = y; i < y + PACKET_WIDTH; i++) {
+		for (int j = x; j < x + PACKET_WIDTH; j++) {
+			CastRay(rayPacket.rays[k++], j, i);
+		}
+	}
 }
 
 // cast all rays at once - DEPRECATED

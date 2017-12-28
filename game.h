@@ -13,9 +13,10 @@ public:
 	void MouseMove(int x, int y);
 	void KeyUp(int key);
 	void KeyDown(int key);
+	void ShowInfo();
 private:
 	bool handleCameraRotation;
-	uint toggleInfoView;
+	uint toggleInfoView = 1;
 	float deltaTime;
 	Surface* screen;
 };

@@ -253,7 +253,7 @@ int main( int argc, char **argv )
 #ifdef FULLSCREEN
 	window = SDL_CreateWindow( TEMPLATE_VERSION, 100, 100, SCRWIDTH, SCRHEIGHT, SDL_WINDOW_FULLSCREEN );
 #else
-	window = SDL_CreateWindow( TEMPLATE_VERSION, 100, 100, SCRWIDTH, SCRHEIGHT, SDL_WINDOW_SHOWN );
+	window = SDL_CreateWindow(RAY_TRACER_VERSION, 100, 100, SCRWIDTH, SCRHEIGHT, SDL_WINDOW_SHOWN );
 #endif
 	surface = new Surface( SCRWIDTH, SCRHEIGHT );
 	surface->Clear( 0 );

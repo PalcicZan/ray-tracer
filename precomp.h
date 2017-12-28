@@ -31,6 +31,10 @@ extern "C"
 #include "windows.h"
 #include "template.h"
 #include "surface.h"
+
+// user settings
+#include "settings.h"
+
 #include "threads.h"
 #include <assert.h>
 #include <math.h>
@@ -38,8 +42,6 @@ extern "C"
 using namespace std;
 using namespace Tmpl8;
 
-// user settings
-#include "settings.h"
 
 // ray tracer
 #include "ray.h"

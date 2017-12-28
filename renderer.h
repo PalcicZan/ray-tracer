@@ -19,7 +19,8 @@ public:
 	void SetBVH(BVH *bvh) { this->bvh = bvh; };
 	vec3* GetPrimaryRaysDirections() { return primaryRaysDirections; };
 	vec3 Trace(Ray& r, int depth, float &dist, int &intersectionCounter);
-	void TraceMany(RayPacket& rays, vec3 *colors, int depth, float &dist, int &intersectionCounter);
+	void TraceMany(Rays& rays, vec3 *colors, int depth, float &dist, int &intersectionCounter);
+	void TraceRayPacket(RayPacket &rayPacket, vec3 *colors, int depth, float &dist, int &intersectionCounter);
 	void Sim(const int fromY, const int toY);
 	int toggleRenderView;
 	int toggleSplitMethod;
