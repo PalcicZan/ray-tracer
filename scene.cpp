@@ -67,7 +67,7 @@ void Scene::Initialize() {
 	nPrimitives = 2;
 	int loadedPrimitives = 0;
 	//loadedPrimitives = LoadObj("assets/bunny_200.obj", nPrimitives, vec3(0.0f, 0.0f, -3.0f), primitives);
-	loadedPrimitives = LoadObj("assets/lowpolytree.obj", nPrimitives, 0, vec3(0.0f, 0.0f, -15.0f), primitives);
+	loadedPrimitives = LoadObj("assets/lowpolytree.obj", nullptr, Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0), nPrimitives, 0, vec3(0.0f, 0.0f, -150.0f), primitives);
 	int offset = loadedPrimitives;
 	nTriangles = offset;
 	triangles = (Triangle**)&primitives[offset - nTriangles];
@@ -84,25 +84,152 @@ void Scene::Initialize() {
 	nLights = offset - nPlanes - nSpheres - nTriangles;
 
 #elif SIMPLE_SCENE == 3
-	nPrimitives = 2;
+	Texture *earth = new Texture();
+	Texture *grid = new Texture();
+	earth->LoadTexture("assets/earth/4096_earth.jpg");
+	grid->LoadTexture("assets/floor.jpg");
+
+	// preallocate 
+	nPrimitives = 6;
 	int loadedPrimitives = 0;
 	//loadedPrimitives = LoadObj("assets/white_oak.obj", nPrimitives, 0, vec3(0.0f, 0.0f, -2000.0f), primitives);
-	loadedPrimitives = LoadObj("assets/earth.obj", nPrimitives, 0, vec3(0.0f, 0.0f, -2000.0f), primitives);
+	loadedPrimitives = LoadObj("assets/earth/earth.obj", earth, Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0), nPrimitives, 0, vec3(0.0f, 0.0f, -1000.0f), primitives);
+	//loadedPrimitives = LoadObj("assets/earth.obj", earth, nPrimitives, 0, vec3(0.0f, 0.0f, -2000.0f), primitives);
+	//nPrimitives += loadedPrimitives;
+	//loadedPrimitives = LoadObj("assets/earth.obj", nullptr, Material(Material::MIRROR, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0), nPrimitives, loadedPrimitives, vec3(1000.0f, 0.0f, -2000.0f), primitives);
 	nPrimitives += loadedPrimitives;
-	loadedPrimitives = LoadObj("assets/earth.obj", nPrimitives, loadedPrimitives, vec3(1000.0f, 0.0f, -2000.0f), primitives);
-	nPrimitives += loadedPrimitives;
-	int offset = nPrimitives-2;
-	nTriangles = offset;
-	triangles = (Triangle**)&primitives;
+	int offset = nPrimitives - 6;
+	// counter-clockwise
+	primitives[offset] = new Triangle(vec3(-510.0f, -400.0f, -1500.0f), vec3(-510.0f, -400.0f, -100.0f), vec3(510.0f, -400.0f, -1500.0f),
+									  Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 1.0, vec3(0.95, 0.93, 0.88)));
+	primitives[offset++]->SetTexture(grid);
+	primitives[offset] = new Triangle(vec3(515.0f, -400.0f, -100.0f), vec3(515.0f, -400.0f, -1500.0f), vec3(-510.0f, -400.0f, -100.0f), 
+									  Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 1.0, vec3(0.95, 0.93, 0.88)));
+	primitives[offset++]->SetTexture(grid);
+
+	primitives[offset++] = new Triangle(vec3(-510.0f, 500.0f, -1500.0f), vec3(-510.0f, -400.0f, -1500.0f), vec3(510.0f, 500.0f, -1500.0f), Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0));
+	primitives[offset++] = new Triangle(vec3(515.0f, -400.0f, -1500.0f), vec3(515.0f, 500.0f, -1500.0f), vec3(-510.0f, -400.0f, -1500.0f), Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0));
+
 	// lights
+	/*primitives[offset] = new Triangle(vec3(50.0f, 500.0f, -500.0f), vec3(-50.0f, 500.0f, -10.0f), vec3(-50.0f, 500.0f, -500.0f), Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0));
+	primitives[offset]->lightType = Primitive::LightType::INF;
+	primitives[offset++]->intensity = 1.0f;
+
+	primitives[offset] = new Triangle(vec3(-50.0f, 500.0f, -10.0f), vec3(50.0f, 500.0f, -500.0f), vec3(50.0f, 500.0f, -10.0f), Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0));
+	primitives[offset]->lightType = Primitive::LightType::INF;
+	primitives[offset++]->intensity = 1.0f;
+	*/primitives[offset] = new Triangle(vec3(500.0f, 500.0f, -1500.0f), vec3(-500.0f, 500.0f, -100.0f), vec3(-500.0f, 500.0f, -1500.0f), Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0));
+	primitives[offset]->lightType = Primitive::LightType::INF;
+	primitives[offset++]->intensity = 1.0f;
+
+	primitives[offset] = new Triangle(vec3(-500.0f, 500.0f, -100.0f), vec3(500.0f, 500.0f, -1500.0f), vec3(500.0f, 500.0f, -100.0f), Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0));
+	primitives[offset]->lightType = Primitive::LightType::INF;
+	primitives[offset++]->intensity = 1.0f;
+
+	triangles = (Triangle**)&primitives;
+	nTriangles = offset;
+	nLights = 2;
+	/*
 	primitives[offset] = new Sphere(vec3(-5, 7, -7), 0.1f, Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0, 1.0f, 0.0f, 0.0));
 	primitives[offset]->lightType = Primitive::LightType::INF;
-	primitives[offset++]->intensity = 0.4f;
-	primitives[offset] = new Sphere(vec3(8, 7, -2), 0.1f, Material(Material::DIFFUSE, vec3(1.000, 1.000, 0.878), 0, 1.0f, 0.0f, 0.0));
+	primitives[offset++]->intensity = 0.3f;
+	primitives[offset] = new Sphere(vec3(0, 7, 500), 200.1f, Material(Material::DIFFUSE, vec3(1.000, 1.000, 0.878), 0, 1.0f, 0.0f, 0.0));
 	primitives[offset]->lightType = Primitive::LightType::INF;
 	primitives[offset++]->intensity = 0.7f;
 	nLights = offset - nPlanes - nSpheres - nTriangles;
+	*/
+	//char *skyboxFiles[6] = { "assets/skybox/cwd_rt.JPG", "assets/skybox/cwd_lf.JPG", "assets/skybox/cwd_up.JPG",
+	//						"assets/skybox/cwd_dn.JPG", "assets/skybox/cwd_ft.JPG", "assets/skybox/cwd_bk.JPG" };
+	
+	char *skyboxFiles[6] = { "assets/skybox/lightblue/right.png", "assets/skybox/lightblue/left.png", "assets/skybox/lightblue/top.png",
+		"assets/skybox/lightblue/bot.png", "assets/skybox/lightblue/front.png", "assets/skybox/lightblue/back.png" };
+	SetSkybox(skyboxFiles);
+#elif SIMPLE_SCENE == NICE_SCENE
+	Texture *earth = new Texture();
+	Texture *grid = new Texture();
+	Texture *moon = new Texture();
+	earth->LoadTexture("assets/earth/4096_earth.jpg");
+	grid->LoadTexture("assets/floor.jpg");
+	moon->LoadTexture("assets/moonmap.jpg");
 
+	// preallocate 
+	int nCreatedPrimitives = 8;
+	nPrimitives = nCreatedPrimitives;
+	int loadedPrimitives = 0;	
+	
+	//loadedPrimitives = LoadObj("assets/white_oak.obj", nPrimitives, 0, vec3(0.0f, 0.0f, -2000.0f), primitives);
+	loadedPrimitives = LoadObj("assets/earth/earth.obj", earth, Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0), nPrimitives, 0, vec3(0.0f, 0.0f, -1000.0f), primitives);
+	nPrimitives += loadedPrimitives;
+	loadedPrimitives = LoadObj("assets/earth/earth.obj", moon, Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0), nPrimitives, nPrimitives-nCreatedPrimitives, vec3(-1000.0f, 0.0f, -2000.0f), primitives);
+	nPrimitives += loadedPrimitives;
+	loadedPrimitives = LoadObj("assets/earth/earth.obj", nullptr, Material(Material::MIRROR, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0), nPrimitives, nPrimitives-nCreatedPrimitives, vec3(1000.0f, 0.0f, -2000.0f), primitives);
+	nPrimitives += loadedPrimitives;
+	int offset = nPrimitives - nCreatedPrimitives;
+	//loadedPrimitives = LoadObj("assets/earth.obj", nullptr, nPrimitives, loadedPrimitives, vec3(1000.0f, 0.0f, -2000.0f), primitives);
+	//nPrimitives += loadedPrimitives;
+
+	// floor
+	primitives[offset] = new Triangle(vec3(-2000, -400.0f, -4000), vec3(-2000, -400.0f, -0), vec3(2000, -400.0f, -4000),
+									  Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 100.0));
+	primitives[offset++]->SetTexture(grid);
+	primitives[offset] = new Triangle(vec3(2000, -400.0f, -0), vec3(2000, -400.0f, -4000), vec3(-2000, -400.0f, -0),
+									  Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 100.0));
+	primitives[offset++]->SetTexture(grid);
+	/*primitives[offset] = new Triangle(vec3(-500.0f, -400.0f, -1500.0f), vec3(-500.0f, -400.0f, -500.0f), vec3(500.0f, -400.0f, -1500.0f),
+	Material(Material::MICROFACETS, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 200.0));
+	primitives[offset++]->SetTexture(grid);
+	primitives[offset] = new Triangle(vec3(500.0f, -400.0f, -500.0f), vec3(500.0f, -400.0f, -1500.0f), vec3(-500.0f, -400.0f, -500.0f),
+	Material(Material::MICROFACETS, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 200.0));
+	primitives[offset++]->SetTexture(grid);*/
+	/*primitives[offset] = new Triangle(vec3(500, -400.0f, -2000), vec3(500, -400.0f, -1000), vec3(1500.0f, -400.0f, -2000), Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0));
+	primitives[offset++]->SetTexture(grid);
+	primitives[offset] = new Triangle(vec3(1500, -400.0f, -1000), vec3(1500, -400.0f, -2000), vec3(500, -400.0f, -1000), Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0));
+	primitives[offset++]->SetTexture(grid);
+
+	primitives[offset] = new Triangle(vec3(-1500, -400.0f, -2000), vec3(-1500, -400.0f, -1000), vec3(-500, -400.0f, -2000), Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0));
+	primitives[offset++]->SetTexture(grid);
+	primitives[offset] = new Triangle(vec3(-500, -400.0f, -1000), vec3(-500, -400.0f, -2000), vec3(-1500, -400.0f, -1000), Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0));
+	primitives[offset++]->SetTexture(grid);*/
+
+	//primitives[offset++] = new Triangle(vec3(-510.0f, 500.0f, -1500.0f), vec3(-510.0f, -400.0f, -1500.0f), vec3(510.0f, 500.0f, -1500.0f), Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0));
+	//primitives[offset++] = new Triangle(vec3(515.0f, -400.0f, -1500.0f), vec3(515.0f, 500.0f, -1500.0f), vec3(-510.0f, -400.0f, -1500.0f), Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0));
+
+	// lights
+	primitives[offset] = new Triangle(vec3(50.0f, 500.0f, -700.0f), vec3(-50.0f, 500.0f, -500.0f), vec3(-50.0f, 500.0f, -700.0f), Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0));
+	primitives[offset]->lightType = Primitive::LightType::INF;
+	primitives[offset++]->intensity = 10.0f;
+
+	primitives[offset] = new Triangle(vec3(-50.0f, 500.0f, -500.0f), vec3(50.0f, 500.0f, -700.0f), vec3(50.0f, 500.0f, -500.0f), Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0));
+	primitives[offset]->lightType = Primitive::LightType::INF;
+	primitives[offset++]->intensity = 10.0f;
+
+	/*primitives[offset] = new Triangle(vec3(-900.0f, -390.0f, -1800), vec3(-950.0f, -300.0f, -1700), vec3(-1000.0f, -390.0f, -1800), Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0));
+	primitives[offset]->lightType = Primitive::LightType::INF;
+	primitives[offset++]->intensity = 10.0f;
+	primitives[offset] = new Triangle(vec3(-1000.0f, -390.0f, -1700), vec3(-900, -300.0f, -1800), vec3(-900, -390.0f, -1700), Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0));
+	primitives[offset]->lightType = Primitive::LightType::INF;
+	primitives[offset++]->intensity = 10.0f;*/
+	primitives[offset] = new Triangle(vec3(-900.0f, 500.0f, -1800), vec3(-1000.0f, 500.0f, -1600), vec3(-1000.0f, 500.0f, -1800), Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0));
+	primitives[offset]->lightType = Primitive::LightType::INF;
+	primitives[offset++]->intensity = 1.0f;
+	primitives[offset] = new Triangle(vec3(-1000.0f, 500.0f, -1600), vec3(-900, 500.0f, -1800), vec3(-900, 500.0f, -1600), Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0));
+	primitives[offset]->lightType = Primitive::LightType::INF;
+	primitives[offset++]->intensity = 1.0f;
+
+	primitives[offset] = new Triangle(vec3(1000.0f, 500.0f, -1800), vec3(900.0f, 500.0f, -1600), vec3(900.0f, 500.0f, -1800), Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0));
+	primitives[offset]->lightType = Primitive::LightType::INF;
+	primitives[offset++]->intensity = 1.0f;
+	primitives[offset] = new Triangle(vec3(900.0f, 500.0f, -1600), vec3(1000, 500.0f, -1800), vec3(1000, 500.0f, -1600), Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0));
+	primitives[offset]->lightType = Primitive::LightType::INF;
+	primitives[offset++]->intensity = 1.0f;
+
+	triangles = (Triangle**)&primitives;
+	nTriangles = offset;
+	nLights = 6;
+
+	char *skyboxFiles[6] = { "assets/skybox/lightblue/right.png", "assets/skybox/lightblue/left.png", "assets/skybox/lightblue/top.png",
+	"assets/skybox/lightblue/bot.png", "assets/skybox/lightblue/front.png", "assets/skybox/lightblue/back.png" };
+	SetSkybox(skyboxFiles);
 #endif
 	lights = &primitives[nPrimitives - nLights];
 	SetBackground(vec3(0.5f, 0.5f, 0.5f));
@@ -113,6 +240,141 @@ void Scene::SetBackground(vec3 color) {
 	backgroudColorP = SetPixelColor(color);
 }
 
+void Scene::SetSkybox(char *skyboxFiles[6]) {
+	skybox = new Skybox();
+	skybox->LoadSkybox(skyboxFiles);
+	hasSkybox = true;
+}
+
+void Primitive::SetTexture(Texture* t) {
+	material.texture = t;
+	material.hasTexture = true;
+}
+
+void Primitive::SetBumpMap(Texture * b) {
+	material.bump = b;
+	material.hasBumpMap = true;
+}
+
+float SRGBToLin(float c) {
+	/*if (c <= 0.03928f)
+		return c / 12.92f;
+	else
+		return pow((c + 0.055f) / 1.055f, 2.4f);
+*/
+	if (c <= 0.04045f)
+		return c / 12.92f;
+	else
+		return pow((c + 0.055f) / 1.055f, 2.4f);
+}
+
+void Texture::LoadTexture(char * filename) {
+	Surface *temp = new Surface(filename);
+	width = temp->GetWidth();
+	height = temp->GetHeight();
+	Pixel *data = temp->GetBuffer();
+	color = new vec3[width*height];
+	int k = 0;
+	for (int i = height - 1; i >= 0; i--) for (int j = 0; j < width; j++) {
+		vec3 preprocessedColor = getPixelColor(data[i*width + j]);
+#if GAMMA_CORRECTION == SQRT
+		color[k++] = vec3(preprocessedColor.x*preprocessedColor.x, preprocessedColor.y*preprocessedColor.y, preprocessedColor.z*preprocessedColor.z);
+#elif GAMMA_CORRECTION == SRGB
+		color[k++] = vec3(SRGBToLin(preprocessedColor.x), SRGBToLin(preprocessedColor.y), SRGBToLin(preprocessedColor.z));
+#else
+		color[k++] = getPixelColor(data[i*width + j]);
+#endif
+	}
+	delete temp;
+}
+
+int Scene::LoadObj(string inputObjFile, Texture* texture, Material material, int numOfPrimitives, int storeOffset, vec3 objOffset, Primitive **&primitives) {
+	tinyobj::attrib_t attrib;
+	std::vector<tinyobj::shape_t> shapes;
+	std::vector<tinyobj::material_t> materials;
+
+	std::string err;
+	bool ret = tinyobj::LoadObj(&attrib, &shapes, &materials, &err, inputObjFile.c_str());
+
+	if (!ret) {
+		exit(1);
+	}
+
+	int nNewPrimitives = 0;
+	for (size_t s = 0; s < shapes.size(); s++) {
+		nNewPrimitives += shapes[s].mesh.num_face_vertices.size();
+	}
+
+	if (primitives == nullptr) {
+		primitives = new Primitive*[numOfPrimitives + nNewPrimitives];
+	} else {
+		// realloc and store
+		size_t newSize = numOfPrimitives + nNewPrimitives;
+		Primitive **newArr = new Primitive*[newSize];
+
+		memcpy(newArr, primitives, numOfPrimitives * sizeof(Primitive*));
+
+		delete[] primitives;
+		primitives = newArr;
+	}
+
+	int ipr = storeOffset;
+	vec3 vertices[3]; vec3 textureUV[3]; vec3 normals[3];
+	Triangle *t;
+	for (size_t s = 0; s < shapes.size(); s++) {
+		int index_offset = 0;
+		for (size_t f = 0; f < shapes[s].mesh.num_face_vertices.size(); f++) {
+			int fv = shapes[s].mesh.num_face_vertices[f];
+			if (fv == 3) { // is triangle
+				for (int v = 0; v < fv; v++) {
+					// access to vertex
+					tinyobj::index_t idx = shapes[s].mesh.indices[index_offset + v];
+					tinyobj::real_t vx = attrib.vertices[3 * idx.vertex_index + 0];
+					tinyobj::real_t vy = attrib.vertices[3 * idx.vertex_index + 1];
+					tinyobj::real_t vz = attrib.vertices[3 * idx.vertex_index + 2];
+					vertices[v] = vec3(vx, vy, vz) + objOffset;
+					// save vertices normals
+					if (idx.normal_index >= 0) {
+						tinyobj::real_t nx = attrib.normals[3 * idx.normal_index + 0];
+						tinyobj::real_t ny = attrib.normals[3 * idx.normal_index + 1];
+						tinyobj::real_t nz = attrib.normals[3 * idx.normal_index + 2];
+						normals[v] = vec3(nx, ny, nz);
+					}
+					// save u, v texture coordinates
+					if (idx.texcoord_index >= 0) {
+						tinyobj::real_t tx = attrib.texcoords[2 * idx.texcoord_index + 0];
+						tinyobj::real_t ty = attrib.texcoords[2 * idx.texcoord_index + 1];
+						textureUV[v] = vec3(tx, ty, 0.0f);
+					}
+				}
+				t = new Triangle(vertices[0], vertices[1], vertices[2], material);
+				t->SetVertexNormals(normals);
+				t->SetVertexTextureUV(textureUV);
+				if (texture != nullptr)	t->SetTexture(texture);
+				primitives[ipr] = t;
+				ipr++;
+			}
+			index_offset += fv;
+		}
+	}
+	return nNewPrimitives;
+}
+
+vec3 Primitive::GetLightIntensity(float distSqr) {
+	switch (lightType) {
+	case LightType::INF:
+		return intensity * material.color;
+		// with attenuation
+	case LightType::POINT:
+		//return intensity * material.color * (1.0f / (4 * PI * sqrtf(distSqr)));
+		return intensity * material.color * (1.0f / distSqr);
+	};
+	return vec3(1.0f);
+}
+
+/*===================================================*/
+/*|	Intersections									|*/
+/*===================================================*/
 Primitive* Scene::GetNearestIntersection(Ray &r, float &u, float &v, int &intersectionCounter) {
 	Primitive *hitPrimitive = nullptr;
 	for (int k = 0; k < nPrimitives; k++) {
@@ -171,73 +433,12 @@ Primitive* Scene::GetAnyIntersection(Ray &r, float dist, int& intersectionCounte
 	return nullptr;
 }
 
-int Scene::LoadObj(string inputfile, int numOfPrimitives, int storeOffset, vec3 objOffset, Primitive **&primitives) {
-	tinyobj::attrib_t attrib;
-	std::vector<tinyobj::shape_t> shapes;
-	std::vector<tinyobj::material_t> materials;
-
-	std::string err;
-	bool ret = tinyobj::LoadObj(&attrib, &shapes, &materials, &err, inputfile.c_str());
-
-	if (!ret) {
-		exit(1);
-	}
-
-	int nNewPrimitives = 0;
-	for (size_t s = 0; s < shapes.size(); s++) {
-		nNewPrimitives += shapes[s].mesh.num_face_vertices.size();
-	}
-
-	if (primitives == nullptr) {
-		primitives = new Primitive*[numOfPrimitives + nNewPrimitives];
-	} else {
-		// realloc and store
-		size_t newSize = numOfPrimitives + nNewPrimitives;
-		Primitive **newArr = new Primitive*[newSize];
-
-		memcpy(newArr, primitives, numOfPrimitives * sizeof(Primitive*));
-
-		delete[] primitives;
-		primitives = newArr;
-	}
-
-	int ipr = storeOffset;
-	for (size_t s = 0; s < shapes.size(); s++) {
-		int index_offset = 0;
-		for (size_t f = 0; f < shapes[s].mesh.num_face_vertices.size(); f++) {
-			int fv = shapes[s].mesh.num_face_vertices[f];
-			vec3 vertices[3]; vec3 texture[3];
-			if (fv == 3) // is triangle
-				for (int v = 0; v < fv; v++) {
-					// access to vertex
-					tinyobj::index_t idx = shapes[s].mesh.indices[index_offset + v];
-					tinyobj::real_t vx = attrib.vertices[3 * idx.vertex_index + 0];
-					tinyobj::real_t vy = attrib.vertices[3 * idx.vertex_index + 1];
-					tinyobj::real_t vz = attrib.vertices[3 * idx.vertex_index + 2];
-					if (idx.normal_index >= 0) {
-						tinyobj::real_t nx = attrib.normals[3 * idx.normal_index + 0];
-						tinyobj::real_t ny = attrib.normals[3 * idx.normal_index + 1];
-						tinyobj::real_t nz = attrib.normals[3 * idx.normal_index + 2];
-					}
-					/*if (idx.texcoord_index >= 0) {
-						tinyobj::real_t tx = attrib.texcoords[3 * idx.texcoord_index + 0];
-						tinyobj::real_t ty = attrib.texcoords[3 * idx.texcoord_index + 1];
-						tinyobj::real_t tz = attrib.texcoords[3 * idx.texcoord_index + 2];
-						texture[v] = vec3(tx, ty, tz);
-					}*/
-					vertices[v] = vec3(vx, vy, vz) + objOffset;
-				}
-			index_offset += fv;
-			primitives[ipr] = new Triangle(vertices[0], vertices[1], vertices[2], Material(Material::DIFFUSE, vec3(0.3f, 0.88f, 0.4f), 0, 1.0f, 0.0, 1.0));
-			ipr++;
-		}
-	}
-	return nNewPrimitives;
-}
-
+/*===================================================*/
+/*|	Spheres											|*/
+/*===================================================*/
 vec3 Sphere::GetColor(vec3 &I, float &u, float &v) {
 	if (material.hasTexture) {
-		vec3 N = (I - position)* rRadius;
+		vec3 N = (I - position) * rRadius;
 		float u = atan2f(N.x, N.z) / (2.0f * PI) + 0.5f;
 		float v = -N.y * 0.5f + 0.5f;
 		return material.texture->GetColor(u, v);
@@ -330,11 +531,11 @@ void Sphere::GetIntersections(Rays &rays, __mVec &mask, __mVec &u, __mVec &v) {
 	__mVec aVec = _mm_add_ps(mul_ps(rays.directionXVec, rays.directionXVec),
 							 _mm_add_ps(mul_ps(rays.directionYVec, rays.directionYVec), mul_ps(rays.directionZVec, rays.directionZVec)));
 	__mVec bVec = mul_ps(TWOVEC, _mm_add_ps(mul_ps(rays.directionXVec, opXVec),
-												_mm_add_ps(mul_ps(rays.directionYVec, opYVec),
-														   mul_ps(rays.directionZVec, opZVec))));
+											_mm_add_ps(mul_ps(rays.directionYVec, opYVec),
+													   mul_ps(rays.directionZVec, opZVec))));
 	__mVec cVec = sub_ps(_mm_add_ps(mul_ps(opXVec, opXVec),
-										_mm_add_ps(mul_ps(opYVec, opYVec),
-												   mul_ps(opZVec, opZVec))), radius2Vec);
+									_mm_add_ps(mul_ps(opYVec, opYVec),
+											   mul_ps(opZVec, opZVec))), radius2Vec);
 
 	__mVec dVec = sub_ps(mul_ps(bVec, bVec), mul_ps(_mm_set_ps1(4.0f), mul_ps(aVec, cVec)));
 	__mVec mask1 = _mm_cmp_ps(dVec, zeroVec, _CMP_GE_OQ);
@@ -382,6 +583,9 @@ void Sphere::GetIntersections(Rays &rays, __mVec &mask, __mVec &u, __mVec &v) {
 #endif
 }
 
+/*===================================================*/
+/*|	Planes											|*/
+/*===================================================*/
 vec3 Plane::GetColor(vec3 &I, float &u, float &v) {
 	if (material.hasTexture) {
 		vec3 vVec = vec3(N.y, N.z, -N.x);
@@ -426,61 +630,34 @@ void Plane::GetIntersections(Rays &rays, __mVec &mask, __mVec &u, __mVec &v) {
 	rays.distVec = _mm_blendv_ps(rays.distVec, dVec, mask);
 }
 
+/*===================================================*/
+/*|	Triangle										|*/
+/*===================================================*/
 vec3 Triangle::GetColor(vec3 &I, float &u, float &v) {
 	if (material.hasTexture) {
-		return material.texture->GetColor(u, (1 - u - v));
-		//float ux = u * t1.x + v * t2.x + (1 - u - v) * t3.x;
-		//float v
+		// get u, v from vertices
+		//BaryA*Auv+BaryB*Buv+BaryC*Cuv
+
+		//float w0 = ((v1.y - v2.y)*(u - v2.x) + (v2.x - v1.x)*(v - v2.y)) / ((v1.y - v2.y)*(v0.x - v2.x) + (v2.x - v1.x)*(v0.y - v2.y));
+		//float w1 = ((v2.y - v0.y)*(u - v2.x) + (v1.x - v2.x)*(v - v2.y)) / ((v1.y - v2.y)*(v0.x - v2.x) + (v2.x - v1.x)*(v0.y - v2.y));
+		//float w2 = 1.0f - w0 - w1;
+		//vec3 uv = w0 * t1 + w1 * t2 + w2 * t3;
+		//vec3 uv = u * t1 + v * t2 + (1 - u - v) * t3;
+		vec3 uv = (1.0f - u - v) * t1 + u * t2 + v * t3;
+		return material.texture->GetColor(uv.x, uv.y);
 	} else {
-		return u * material.color + v * material.color2 + (1 - u - v) * material.color3;
+		return (1 - u - v) * material.color + u * material.color2 + v * material.color3;
 	}
-}
-
-void Triangle::GetAABB(AABB &aabb) {
-#if 1
-	//__m128 minAABB, maxAABB;
-	aabb.minVec = v0Vec;
-	aabb.maxVec = v0Vec;
-	aabb.minVec = _mm_min_ps(aabb.minVec, v1Vec);
-	aabb.maxVec = _mm_max_ps(aabb.maxVec, v1Vec);
-	aabb.minVec = _mm_min_ps(aabb.minVec, v2Vec);
-	aabb.maxVec = _mm_max_ps(aabb.maxVec, v2Vec);
-	//aabb.minVec = minAABB;
-	//aabb.maxVec = maxAABB;
-#else
-	aabb.min.x = v0[0];
-	aabb.min.y = v0[1];
-	aabb.min.z = v0[2];
-	aabb.max.x = v0[0];
-	aabb.max.y = v0[1];
-	aabb.max.z = v0[2];
-	if (v1[0] < aabb.min.x) aabb.min.x = v1[0];
-	if (v1[1] < aabb.min.y) aabb.min.y = v1[1];
-	if (v1[2] < aabb.min.z) aabb.min.z = v1[2];
-	if (v1[0] > aabb.max.x) aabb.max.x = v1[0];
-	if (v1[1] > aabb.max.y) aabb.max.y = v1[1];
-	if (v1[2] > aabb.max.z) aabb.max.z = v1[2];
-
-	if (v2[0] < aabb.min.x) aabb.min.x = v2[0];
-	if (v2[1] < aabb.min.y) aabb.min.y = v2[1];
-	if (v2[2] < aabb.min.z) aabb.min.z = v2[2];
-	if (v2[0] > aabb.max.x) aabb.max.x = v2[0];
-	if (v2[1] > aabb.max.y) aabb.max.y = v2[1];
-	if (v2[2] > aabb.max.z) aabb.max.z = v2[2];
-#endif
 }
 
 // Möller–Trumbore intersection algorithm
 bool Triangle::GetIntersection(Ray &ray, float &u, float &v) {
 	vec3 edge1 = v1 - v0;
-	//vec3 edge1 = vec3(v1[0] - v0[0], v1[1] - v0[1], v1[2] - v0[2]);
 	vec3 edge2 = v2 - v0;
-	//vec3 edge2 = vec3(v2[0] - v0[0], v2[1] - v0[1], v2[2] - v0[2]);
 	vec3 h = cross(ray.direction, edge2);
 	float det = dot(edge1, h);
 	if (det < EPSILON && det > -EPSILON) return false;
-	float f = 1 / det;
-	//vec3 s = vec3(ray.origin.x - v0[0], ray.origin.y - v0[1], ray.origin.z - v0[2]);
+	float f = 1.0f / det;
 	vec3 s = ray.origin - v0;
 	u = f * dot(s, h);
 	if (u < 0.0f || u > 1.0f) return false;
@@ -526,41 +703,43 @@ void Triangle::GetIntersections(Rays &rays, __mVec &mask, __mVec &uVec, __mVec &
 	rays.distVec = _mm_blendv_ps(rays.distVec, tVec, mask);
 }
 
-vec3 Primitive::GetLightIntensity(float distSqr) {
-	switch (lightType) {
-	case LightType::INF:
-		return intensity * material.color;
-		// with attenuation
-	case LightType::POINT:
-		//return intensity * material.color * (1.0f / (4 * PI * sqrtf(distSqr)));
-		return intensity * material.color * (1.0f / distSqr);
-	};
-	return vec3(1.0f);
+void Triangle::GetAABB(AABB &aabb) {
+#if 1
+	//__m128 minAABB, maxAABB;
+	aabb.minVec = v0Vec;
+	aabb.maxVec = v0Vec;
+	aabb.minVec = _mm_min_ps(aabb.minVec, v1Vec);
+	aabb.maxVec = _mm_max_ps(aabb.maxVec, v1Vec);
+	aabb.minVec = _mm_min_ps(aabb.minVec, v2Vec);
+	aabb.maxVec = _mm_max_ps(aabb.maxVec, v2Vec);
+	//aabb.minVec = minAABB;
+	//aabb.maxVec = maxAABB;
+#else
+	aabb.min.x = v0[0];
+	aabb.min.y = v0[1];
+	aabb.min.z = v0[2];
+	aabb.max.x = v0[0];
+	aabb.max.y = v0[1];
+	aabb.max.z = v0[2];
+	if (v1[0] < aabb.min.x) aabb.min.x = v1[0];
+	if (v1[1] < aabb.min.y) aabb.min.y = v1[1];
+	if (v1[2] < aabb.min.z) aabb.min.z = v1[2];
+	if (v1[0] > aabb.max.x) aabb.max.x = v1[0];
+	if (v1[1] > aabb.max.y) aabb.max.y = v1[1];
+	if (v1[2] > aabb.max.z) aabb.max.z = v1[2];
+
+	if (v2[0] < aabb.min.x) aabb.min.x = v2[0];
+	if (v2[1] < aabb.min.y) aabb.min.y = v2[1];
+	if (v2[2] < aabb.min.z) aabb.min.z = v2[2];
+	if (v2[0] > aabb.max.x) aabb.max.x = v2[0];
+	if (v2[1] > aabb.max.y) aabb.max.y = v2[1];
+	if (v2[2] > aabb.max.z) aabb.max.z = v2[2];
+#endif
 }
 
-void Primitive::SetTexture(Texture* t) {
-	material.texture = t;
-	material.hasTexture = true;
-}
-
-void Primitive::SetBumpMap(Texture * b) {
-	material.bump = b;
-	material.hasBumpMap = true;
-}
-
-void Texture::LoadTexture(char * filename) {
-	Surface *temp = new Surface(filename);
-	width = temp->GetWidth();
-	height = temp->GetHeight();
-	Pixel *data = temp->GetBuffer();
-	color = new vec3[width*height];
-	int k = 0;
-	for (int i = 0; i < height; i++) for (int j = 0; j < width; j++) {
-		color[k++] = getPixelColor(data[i*width + j]);
-	}
-	delete temp;
-}
-
+/*===================================================*/
+/*|	AABB											|*/
+/*===================================================*/
 bool AABB::GetIntersection(Ray &ray) {
 #if  FAST_AABB
 	__m128 ones = _mm_set_ps(1.0f, 1.0f, 1.0f, 1.0f);
@@ -647,4 +826,70 @@ bool AABB::GetIntersection(Frustum frustum) {
 	}
 	return true;
 #endif
+}
+
+void Skybox::LoadSkybox(char* filename[6]) {
+	for (int i = 0; i < 6; i++) {
+		sides[i] = Texture(filename[i]);
+	}
+}
+
+vec3 Skybox::GetColor(vec3 d) {
+	float absX = fabs(d.x);
+	float absY = fabs(d.y);
+	float absZ = fabs(d.z);
+
+	int isXPositive = d.x > 0 ? 1 : 0;
+	int isYPositive = d.y > 0 ? 1 : 0;
+	int isZPositive = d.z > 0 ? 1 : 0;
+
+	float maxAxis, uc, vc;
+	int index;
+	// POSITIVE X
+	if (isXPositive && absX >= absY && absX >= absZ) {
+		maxAxis = absX;
+		uc = -d.z;
+		vc = d.y;
+		index = 0;
+	}
+	// NEGATIVE X
+	if (!isXPositive && absX >= absY && absX >= absZ) {
+		maxAxis = absX;
+		uc = d.z;
+		vc = d.y;
+		index = 1;
+	}
+	// POSITIVE Y
+	if (isYPositive && absY >= absX && absY >= absZ) {
+		maxAxis = absY;
+		uc = d.x;
+		vc = -d.z;
+		index = 2;
+	}
+	// NEGATIVE Y
+	if (!isYPositive && absY >= absX && absY >= absZ) {
+		maxAxis = absY;
+		uc = d.x;
+		vc = d.z;
+		index = 3;
+	}
+	// POSITIVE Z
+	if (isZPositive && absZ >= absX && absZ >= absY) {
+		maxAxis = absZ;
+		uc = d.x;
+		vc = d.y;
+		index = 4;
+	}
+	// NEGATIVE Z
+	if (!isZPositive && absZ >= absX && absZ >= absY) {
+		maxAxis = absZ;
+		uc = -d.x;
+		vc = d.y;
+		index = 5;
+	}
+
+	// Convert range from -1 to 1 to 0 to 1
+	float u = 0.5f * (uc / maxAxis + 1.0f);
+	float v = 0.5f * (vc / maxAxis + 1.0f);
+	return sides[index].GetColor(u, v);
 }

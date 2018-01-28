@@ -18,6 +18,7 @@ public:
 	void Initialize(vec3 position, vec3 direction, float fov);
 	void SetFov(float deg);
 	void SetAspectRatio(float aspectRatio);
+	void SetMoveStep(float step) { moveStep = step; };
 	void SetInterpolationStep();
 	void SetTransformationMatrices();
 

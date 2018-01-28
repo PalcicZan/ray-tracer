@@ -4,23 +4,47 @@
 /*|	Constant defines - non modifiable				|*/
 /*===================================================*/
 // ray tracer
-#define RAY_TRACER_VERSION "Whitted-style ray tracer v1.10 (BETA)"
+#define RAY_TRACER_VERSION "Whitted-style ray tracer v1.50 (BETA)"
 
 // renderer
 #define EPSILON  0.001f // bigger epsilon for large scenes
 #define STACKSIZE 100
+
+// postprocessing
+#define SQRT 1
+#define SRGB 2
+
+// path tracing
+#define UNIFORM 0
+#define COSINE 1
+
+#define NO_TRICKS -1
+#define SIMPLE 0
+#define NEE	1
+#define COMBINE 2
 
 // BVH TRAVERSAL options
 #define NORMAL 0
 #define RANGED 1
 #define PARTITION 2
 
-
 // SIMD options
 #define WITHOUT 0
 #define SSE4 1
 #define AVX 2
 
+
+// sceene
+#define NICE_SCENE 4
+
+// Ref
+#define R_REF 0.115605//0.123614 
+#define G_REF 0.111627
+#define B_REF 0.090285
+
+#define R_REF_H 0.120952
+#define G_REF_H 0.119472
+#define B_REF_H 0.107579
 /*===================================================*/
 /*|	Settings to modify								|*/
 /*===================================================*/
@@ -33,20 +57,31 @@
 #endif
 #define REF_SPEED_TREE 1313.897
 
-#define MAX_DEPTH 3
+#define MAX_DEPTH 6
 #define CAST_RAY_EVERY_FRAME 1
 #define MEASURE_PERFORMANCE 1
 #define SHOW_INFO 1
+
+// postprocessing
+#define GAMMA_CORRECTION SQRT
+#define CLAMP_FIREFLIES 0
+#define MAX_MAGNITUDE 1.0f
+
+// path tracing
+#define PATH_TRACER COMBINE
+#define VARIANCE_REDUCTION COSINE
+#define N_BOUNCES 8
+#define RUSSIAN_ROULETTE 0
 
 // bvh
 #define USE_BVH 1
 #define MIN_PRIMITIVES_PER_LEAF 3
 #define FAST_AABB 1
 // binning SAH
-#define K_BINS 16
+#define K_BINS 15
 // traverse
-#define TRAVERSAL NORMAL
-#define PACKET_WIDTH 8
+#define TRAVERSAL PARTITION
+#define PACKET_WIDTH 4
 #define PACKET_SIZE (PACKET_WIDTH * PACKET_WIDTH)
 
 // camera
@@ -55,7 +90,7 @@
 // scene
 // 2 loads simple obj - tree
 // 3 loads simple obj - earths
-#define SIMPLE_SCENE 3
+#define SIMPLE_SCENE NICE_SCENE
 
 // SIMD
 #define CACHE_LINE 16
@@ -67,7 +102,7 @@
 #define ALIGNMENT 16
 typedef __m128 __mVec;
 typedef __m128i __mVeci;
-inline static __mVec _mVec_setr_ps(float a, float b, float c, float d, float e, float f, float g, float h) { return setr_ps(a, b, c, d); };
+inline static __mVec _mVec_setr_ps(float a, float b, float c, float d, float e, float f, float g, float h) { return _mm_setr_ps(a, b, c, d); };
 #elif SIMD == AVX
 #define VEC_SIZE 8
 #define ALIGNMENT 32

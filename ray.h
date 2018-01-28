@@ -43,6 +43,8 @@ struct Frustum {
 
 struct RayPacket {
 	Ray rays[PACKET_SIZE];
+	float u[PACKET_SIZE];
+	float v[PACKET_SIZE];
 	Frustum frustum;
 	/*union { __declspec(align(ALIGNMENT)) float originX[PACKET_SIZE]; __mVec originXVec; };
 	union { __declspec(align(ALIGNMENT)) float originY[VEC_SIZE]; __mVec originYVec; };

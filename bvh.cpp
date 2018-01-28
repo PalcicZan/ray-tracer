@@ -112,9 +112,12 @@ void BVH::ReconstructBVH(Primitive **primitives, const int N) {
 
 inline void BVHNode::IntersectNearestPrimitive(Ray &r, BVH &bvh, Primitive **hit) {
 	float u, v;
-	for (int i = node.leftFirst; i < node.leftFirst + node.count; i++) {
-		if (bvh.primitives[bvh.indices[i]]->GetIntersection(r, u, v))
+	for (int i = node.leftFirst; i < (node.leftFirst + node.count); i++) {
+		if (bvh.primitives[bvh.indices[i]]->GetIntersection(r, u, v)) {
 			*hit = bvh.primitives[bvh.indices[i]];
+			(*hit)->hitU = u;
+			(*hit)->hitV = v;
+		}
 	}
 }
 
@@ -122,8 +125,11 @@ inline void BVHNode::IntersectNearestPrimitive(RayPacket &rayPacket, BVH &bvh, i
 	float u, v;
 	for (int j = first; j <= last; j++) {
 		for (int i = node.leftFirst; i < node.leftFirst + node.count; i++) {
-			if (bvh.primitives[bvh.indices[i]]->GetIntersection(rayPacket.rays[j], u, v))
+			if (bvh.primitives[bvh.indices[i]]->GetIntersection(rayPacket.rays[j], u, v)) {
 				primitiveInd[j] = bvh.indices[i] + 1;
+				rayPacket.u[j] = u;
+				rayPacket.v[j] = v;
+			}
 		}
 	}
 }
@@ -132,8 +138,11 @@ inline void BVHNode::IntersectNearestPrimitive(RayPacket &rayPacket, BVH &bvh, i
 	float u, v;
 	for (int j = 0; j < first; j++) {
 		for (int i = node.leftFirst; i < node.leftFirst + node.count; i++) {
-			if (bvh.primitives[bvh.indices[i]]->GetIntersection(rayPacket.rays[I[j]], u, v))
+			if (bvh.primitives[bvh.indices[i]]->GetIntersection(rayPacket.rays[I[j]], u, v)) {
 				primitiveInd[I[j]] = bvh.indices[i] + 1;
+				rayPacket.u[I[j]] = u;
+				rayPacket.v[I[j]] = v;
+			}
 		}
 	}
 }
@@ -143,6 +152,8 @@ inline void BVHNode::IntersectAnyPrimitive(Ray &r, BVH &bvh, Primitive **hit) {
 	for (int i = node.leftFirst; i < node.leftFirst + node.count; i++) {
 		if (bvh.primitives[bvh.indices[i]]->GetIntersection(r, u, v)) {
 			*hit = bvh.primitives[bvh.indices[i]];
+			(*hit)->hitU = u;
+			(*hit)->hitV = v;
 			return;
 		}
 	}
@@ -154,7 +165,7 @@ void BVHNode::Subdivide(BVH &bvh) {
 	Partition(bvh, bestSplit);
 	// in case of no good splits
 	if (bestSplit < 0) return;
-	// mark this node as NOT leaf
+	// mark this node as inner node
 	node.count = 0;
 	// subdivide each child
 	bvh.pool[node.leftFirst].Subdivide(bvh);
@@ -183,21 +194,23 @@ inline void BVHNode::Partition(BVH &bvh, int &bestSplit) {
 	}
 }
 
-inline void BVHNode::PartitionBinnedSAH(BVH &bvh, int &bestSplit) {
+void BVHNode::PartitionBinnedSAH(BVH &bvh, int &bestSplit) {
 	// get widthest centroids BB axis
 	int axis = node.GetWidthestAxis();
+	// K bins of equal widths
+	float nodeWidth = node.max.cell[axis] - node.min.cell[axis];
+	float binWidth = nodeWidth / K_BINS;
+	float k1 = (K_BINS * (1.0f - EPSILON)) / nodeWidth;
+	//float k1 = (K_BINS) / nodeWidth;
 
 	// populate bins 
 	AABB bins[K_BINS];
 	float costL[K_BINS] = { 0.0f };
 	float n[K_BINS] = { 0.0f };
-	// K bins of equal widths
-	float binWidth = (node.max.cell[axis] - node.min.cell[axis]) / K_BINS;
-	float k1 = K_BINS * (1 - EPSILON) / (node.max.cell[axis] - node.min.cell[axis]);
 
 	int binID;
 	for (int i = node.leftFirst; i < (node.leftFirst + node.count); i++) {
-		binID = (int)(k1 * (bvh.primitives[bvh.indices[i]]->position[axis] - node.min.cell[axis]));
+		binID = (int)(k1 * abs(bvh.primitives[bvh.indices[i]]->position[axis] - node.min.cell[axis]));
 		bins[binID].Merge(bvh.primitivesBounds[bvh.indices[i]]);
 		n[binID] += 1.0f;
 	}
@@ -210,39 +223,42 @@ inline void BVHNode::PartitionBinnedSAH(BVH &bvh, int &bestSplit) {
 		n[i] += n[i - 1];
 		A.Merge(bins[i]);
 		if (n[i]) costL[i] = n[i] * A.GetArea();
-		//costL[i] = n[i] * A.GetArea();
 	}
-
-	float cost, minCost;
-	float nRight = (node.count - n[K_BINS - 2]);
-	A = bins[K_BINS - 1];
-	minCost = costL[K_BINS - 2] + (nRight ? nRight * A.GetArea() : 0);
+	float count = (float)node.count;
+	float nRight = (count - n[K_BINS - 2]);
 	float split = node.min[axis] + binWidth * (K_BINS - 2);
-	float maxCountLeft = n[(K_BINS - 2)];
-	float maxCountRight = (float)node.count - n[K_BINS - 2];
+	float maxCountLeft = n[K_BINS - 2];
+	float maxCountRight = nRight;
+	
+	A = bins[K_BINS - 1];
 	AABB maxBoundsRight = A;
 
+	float cost, minCost;
+	minCost = costL[K_BINS - 2] + (nRight ? nRight * A.GetArea() : 0);
 	// right walk - calculating SAH
 	for (int i = K_BINS - 2; i > 0; i--) {
 		A.Merge(bins[i]);
-		cost = costL[i - 1] + (node.count - n[i - 1]) * A.GetArea();
+		//cost = costL[i - 1] + (count - n[i - 1]) * A.GetArea();
+		cost = costL[i - 1] + (count - n[i - 1]) * A.GetArea();
 		if (cost < minCost) {
 			minCost = cost;
 			split = node.min[axis] + binWidth * i;
 			maxCountLeft = n[i - 1];
-			maxCountRight = node.count - n[i - 1];
+			maxCountRight = count - n[i - 1];
 			maxBoundsRight = A;
 		}
 	}
-
+	if (count != (maxCountRight + maxCountLeft)) {
+		printf("FUCK");
+	}
 	// no good split
-	if (maxCountLeft == 0.0f || maxCountRight == 0.0f || (node.count * node.GetArea()) < minCost) {
-		bestSplit = -1;
+	if (maxCountLeft == 0.0f || maxCountRight == 0.0f || (count * node.GetArea()) < minCost) {
+		//bestSplit = -1;
 		return;
 	}
 
 	// quicksort partition
-	int swap, left = node.leftFirst, right = node.count + node.leftFirst - 1;
+	int swap, left = node.leftFirst, right = node.leftFirst + node.count - 1;
 	while (left < right) {
 		if (bvh.primitives[bvh.indices[left]]->position[axis] > split
 			&& bvh.primitives[bvh.indices[right]]->position[axis] <= split) {
@@ -277,11 +293,11 @@ inline void BVHNode::PartitionExhaustiveSAH(BVH &bvh, int &bestSplit) {
 	// Naive way - very bad O(3*(N^2+NLogN)+NLogN) - O(N^2) - just to check correctness
 	for (uint j = 0; j < 3; j++) {
 		if (j == 0) {
-			std::qsort(&bvh.indices[node.leftFirst], node.count, sizeof(int), comapareByZ);
+			std::qsort(&bvh.indices[node.leftFirst], node.count, sizeof(int), comapareByX);
 		} else if (j == 1) {
 			std::qsort(&bvh.indices[node.leftFirst], node.count, sizeof(int), comapareByY);
 		} else {
-			std::qsort(&bvh.indices[node.leftFirst], node.count, sizeof(int), comapareByX);
+			std::qsort(&bvh.indices[node.leftFirst], node.count, sizeof(int), comapareByZ);
 		}
 		nLeft = 1.0f;
 		nRight = node.count - 1.0f;
@@ -305,21 +321,21 @@ inline void BVHNode::PartitionExhaustiveSAH(BVH &bvh, int &bestSplit) {
 
 	// resort back to best axis
 	if (maxJ == 0) {
-		std::qsort(&bvh.indices[node.leftFirst], node.count, sizeof(int), comapareByZ);
+		std::qsort(&bvh.indices[node.leftFirst], node.count, sizeof(int), comapareByX);
 	} else if (maxJ == 1) {
 		std::qsort(&bvh.indices[node.leftFirst], node.count, sizeof(int), comapareByY);
 	}
 
 	// if good split than prepare childs
-	if (bestSplit >= 0) {
+	if (bestSplit > 0) {
 		int firstPrimitive = node.leftFirst;
 		node.leftFirst = bvh.poolPtr++;
+		bvh.poolPtr++;
 		// set left child as not leaf
 		bvh.pool[node.leftFirst].node = bestBoundsLeft;
 		bvh.pool[node.leftFirst].node.leftFirst = firstPrimitive;
 		bvh.pool[node.leftFirst].node.count = bestSplit;
 		// set right child as not leaf
-		bvh.poolPtr++;
 		bvh.pool[node.leftFirst + 1].node = bestBoundsRight;
 		bvh.pool[node.leftFirst + 1].node.leftFirst = firstPrimitive + bestSplit;
 		bvh.pool[node.leftFirst + 1].node.count = (node.count - bestSplit);
@@ -362,7 +378,8 @@ inline void BVHNode::PartitionMedian(BVH &bvh, int &bestSplit) {
 	}
 
 	int firstPrimitive = node.leftFirst;
-	node.leftFirst = bvh.poolPtr++;
+	node.leftFirst = bvh.poolPtr++; 
+	bvh.poolPtr++;
 	// set left child as not leaf
 	bvh.pool[node.leftFirst].node = bvh.CalculateBoundsMerge(firstPrimitive, bestSplit);
 	bvh.pool[node.leftFirst].node.leftFirst = firstPrimitive;
@@ -371,7 +388,7 @@ inline void BVHNode::PartitionMedian(BVH &bvh, int &bestSplit) {
 	bvh.pool[node.leftFirst + 1].node = bvh.CalculateBoundsMerge(firstPrimitive + bestSplit, node.count - bestSplit);
 	bvh.pool[node.leftFirst + 1].node.leftFirst = firstPrimitive + bestSplit;
 	bvh.pool[node.leftFirst + 1].node.count = (node.count - bestSplit);
-	bvh.poolPtr++;
+	
 }
 
 /*===================================================*/
@@ -389,6 +406,7 @@ void BVHNode::Traverse(Ray &r, BVH &bvh, Primitive **hit, int &intersectionCount
 		intersectionCounter += node.count;
 		IntersectNearestPrimitive(r, bvh, hit);
 	} else {
+		// TODO: smarter traverse - closest first
 		bvh.pool[node.leftFirst].Traverse(r, bvh, hit, intersectionCounter, depthCounter);
 		bvh.pool[node.leftFirst + 1].Traverse(r, bvh, hit, intersectionCounter, depthCounter);
 	}
@@ -407,8 +425,8 @@ void BVHNode::TraverseAny(Ray &r, BVH &bvh, Primitive **hit, int &intersectionCo
 		IntersectAnyPrimitive(r, bvh, hit);
 	} else {
 		// TODO: smarter traverse - closest first
-		if (*hit == nullptr) bvh.pool[node.leftFirst].TraverseAny(r, bvh, hit, intersectionCounter, depthCounter);
-		if (*hit == nullptr) bvh.pool[node.leftFirst + 1].TraverseAny(r, bvh, hit, intersectionCounter, depthCounter);
+		bvh.pool[node.leftFirst].TraverseAny(r, bvh, hit, intersectionCounter, depthCounter);
+		bvh.pool[node.leftFirst + 1].TraverseAny(r, bvh, hit, intersectionCounter, depthCounter);
 	}
 }
 
@@ -475,9 +493,9 @@ void BVHNode::PartitionTraverse(RayPacket &packet, BVH &bvh, int *primitiveInd, 
 				intersectionCounter += first;
 				curr->IntersectNearestPrimitive(packet, bvh, first, I, primitiveInd);
 			} else {
-	#if MEASURE_PERFORMANCE
+#if MEASURE_PERFORMANCE
 				depthCounter++;
-	#endif
+#endif
 				stack[stackPtr].node = &bvh.pool[curr->node.leftFirst + 1];
 				stack[stackPtr++].first = first;
 				stack[stackPtr].node = &bvh.pool[curr->node.leftFirst];
