@@ -181,20 +181,10 @@ void Game::ShowInfo() {
 	offset += 7;
 	screen->Print(buff, 2, offset, 0xffffffff);
 #if USE_BVH
-	sprintf(buff, "Split method: %s", splitMethodText[bvh->splitMethod]);
-	offset += 7;
-	screen->Print(buff, 2, offset, 0xffffffff);
-	sprintf(buff, "Time of BVH construction: %.3lf ms", bvhConstuctionTime);
-	offset += 7;
-	screen->Print(buff, 2, offset, 0xffffffff);
 	sprintf(buff, "Time of BVH traverse: %.3lf ms", bvhTraverseTime);
 	offset += 7;
 	screen->Print(buff, 2, offset, 0xffffffff);
-	float currAll = bvhAllTime / nFrame;
-	sprintf(buff, "Avg time BVH ALL: %.3lf ms", currAll);
-	offset += 7;
-	screen->Print(buff, 2, offset, 0xffffffff);
-#if SIMPLE_SCENE == 2
+#if SCENE == 2
 	sprintf(buff, "Speed up: %.2lfx ", REF_SPEED_TREE / currAll);
 	offset += 7;
 	screen->Print(buff, 2, offset, 0xffffffff);
@@ -207,13 +197,15 @@ void Game::ShowInfo() {
 	sprintf(buff, "Accumulated energy: %.5lf %.5lf %.5lf", accumulatedEnergy.x, accumulatedEnergy.y, accumulatedEnergy.z);
 	offset += 7;
 	screen->Print(buff, 2, offset, 0xffffffff);
+#if SCENE == TEST_SCENE
 #if VARIANCE_REDUCTION == COSINE
-	sprintf(buff, "Ref energy: %.5lf %.5lf %.5lf", R_REF, G_REF, B_REF);
+	sprintf(buff, "Ref energy (SCENE): %.5lf %.5lf %.5lf", R_REF, G_REF, B_REF);
 #else
-	sprintf(buff, "Ref energy: %.5lf %.5lf %.5lf", R_REF_H, G_REF_H, B_REF_H);
+	sprintf(buff, "Ref energy (SCENE): %.5lf %.5lf %.5lf", R_REF_H, G_REF_H, B_REF_H);
 #endif
 	offset += 7;
 	screen->Print(buff, 2, offset, 0xffffffff);
+#endif
 	sprintf(buff, "Sample: %d", nSample);
 	offset += 7;
 	screen->Print(buff, 2, offset, 0xffffffff);
@@ -252,9 +244,11 @@ void Game::Tick(float deltaTime) {
 	for (int i = 0; i < NUM_OF_THREADS; i++) accumulatedEnergy += renderJob[i]->accColor;
 	// show info panel
 	if (toggleInfoView) ShowInfo();
+#if PATH_TRACER == SIMPLE
 	if (nSample == 100)
-		//printf("%lf, %lf, %lf\n", accumulatedEnergy.x, accumulatedEnergy.y, accumulatedEnergy.z);
-		printf("%lf, %lf, %lf\n", abs(R_REF - accumulatedEnergy.x)/R_REF*100.f, abs(G_REF - accumulatedEnergy.y) / G_REF * 100.f, abs(B_REF - accumulatedEnergy.z) / B_REF * 100.f);
+		printf("%lf, %lf, %lf\n", accumulatedEnergy.x, accumulatedEnergy.y, accumulatedEnergy.z);
+#endif
+	//	printf("%lf, %lf, %lf\n", abs(R_REF - accumulatedEnergy.x)/R_REF*100.f, abs(G_REF - accumulatedEnergy.y) / G_REF * 100.f, abs(B_REF - accumulatedEnergy.z) / B_REF * 100.f);
 #else
 	jm->RunJobs();
 #endif

@@ -10,7 +10,7 @@ Scene::~Scene() {
 
 void Scene::Initialize() {
 	// create artificial scene
-#if SIMPLE_SCENE == 1
+#if SCENE == 1
 	nPrimitives = 8;
 	int loadedPrimitives = 0;
 	Texture *bricks = new Texture();
@@ -63,7 +63,7 @@ void Scene::Initialize() {
 	primitives[offset++]->SetTexture(grid);
 	nPlanes = offset - nSpheres - nTriangles;
 	planes = (Plane**)&primitives[offset - nPlanes];
-#elif SIMPLE_SCENE == 2
+#elif SCENE == 2
 	nPrimitives = 2;
 	int loadedPrimitives = 0;
 	//loadedPrimitives = LoadObj("assets/bunny_200.obj", nPrimitives, vec3(0.0f, 0.0f, -3.0f), primitives);
@@ -83,7 +83,7 @@ void Scene::Initialize() {
 	primitives[offset++]->intensity = 100.2f;
 	nLights = offset - nPlanes - nSpheres - nTriangles;
 
-#elif SIMPLE_SCENE == 3
+#elif SCENE == TEST_SCENE
 	Texture *earth = new Texture();
 	Texture *grid = new Texture();
 	earth->LoadTexture("assets/earth/4096_earth.jpg");
@@ -100,24 +100,16 @@ void Scene::Initialize() {
 	nPrimitives += loadedPrimitives;
 	int offset = nPrimitives - 6;
 	// counter-clockwise
-	primitives[offset] = new Triangle(vec3(-510.0f, -400.0f, -1500.0f), vec3(-510.0f, -400.0f, -100.0f), vec3(510.0f, -400.0f, -1500.0f),
+	primitives[offset] = new Triangle(vec3(-500.0f, -400.0f, -1500.0f), vec3(-500.0f, -400.0f, -100.0f), vec3(500.0f, -400.0f, -1500.0f),
 									  Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 1.0, vec3(0.95, 0.93, 0.88)));
 	primitives[offset++]->SetTexture(grid);
-	primitives[offset] = new Triangle(vec3(515.0f, -400.0f, -100.0f), vec3(515.0f, -400.0f, -1500.0f), vec3(-510.0f, -400.0f, -100.0f), 
+	primitives[offset] = new Triangle(vec3(500.0f, -400.0f, -100.0f), vec3(500.0f, -400.0f, -1500.0f), vec3(-500.0f, -400.0f, -100.0f), 
 									  Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 1.0, vec3(0.95, 0.93, 0.88)));
 	primitives[offset++]->SetTexture(grid);
 
-	primitives[offset++] = new Triangle(vec3(-510.0f, 500.0f, -1500.0f), vec3(-510.0f, -400.0f, -1500.0f), vec3(510.0f, 500.0f, -1500.0f), Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0));
-	primitives[offset++] = new Triangle(vec3(515.0f, -400.0f, -1500.0f), vec3(515.0f, 500.0f, -1500.0f), vec3(-510.0f, -400.0f, -1500.0f), Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0));
+	primitives[offset++] = new Triangle(vec3(-500.0f, 500.0f, -1500.0f), vec3(-500.0f, -400.0f, -1500.0f), vec3(500.0f, 500.0f, -1500.0f), Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0));
+	primitives[offset++] = new Triangle(vec3(500.0f, -400.0f, -1500.0f), vec3(500.0f, 500.0f, -1500.0f), vec3(-500.0f, -400.0f, -1500.0f), Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0));
 
-	// lights
-	/*primitives[offset] = new Triangle(vec3(50.0f, 500.0f, -500.0f), vec3(-50.0f, 500.0f, -10.0f), vec3(-50.0f, 500.0f, -500.0f), Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0));
-	primitives[offset]->lightType = Primitive::LightType::INF;
-	primitives[offset++]->intensity = 1.0f;
-
-	primitives[offset] = new Triangle(vec3(-50.0f, 500.0f, -10.0f), vec3(50.0f, 500.0f, -500.0f), vec3(50.0f, 500.0f, -10.0f), Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0));
-	primitives[offset]->lightType = Primitive::LightType::INF;
-	primitives[offset++]->intensity = 1.0f;
 	*/primitives[offset] = new Triangle(vec3(500.0f, 500.0f, -1500.0f), vec3(-500.0f, 500.0f, -100.0f), vec3(-500.0f, 500.0f, -1500.0f), Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0));
 	primitives[offset]->lightType = Primitive::LightType::INF;
 	primitives[offset++]->intensity = 1.0f;
@@ -144,7 +136,7 @@ void Scene::Initialize() {
 	char *skyboxFiles[6] = { "assets/skybox/lightblue/right.png", "assets/skybox/lightblue/left.png", "assets/skybox/lightblue/top.png",
 		"assets/skybox/lightblue/bot.png", "assets/skybox/lightblue/front.png", "assets/skybox/lightblue/back.png" };
 	SetSkybox(skyboxFiles);
-#elif SIMPLE_SCENE == NICE_SCENE
+#elif SCENE == NICE_SCENE
 	Texture *earth = new Texture();
 	Texture *grid = new Texture();
 	Texture *moon = new Texture();
@@ -160,9 +152,9 @@ void Scene::Initialize() {
 	//loadedPrimitives = LoadObj("assets/white_oak.obj", nPrimitives, 0, vec3(0.0f, 0.0f, -2000.0f), primitives);
 	loadedPrimitives = LoadObj("assets/earth/earth.obj", earth, Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0), nPrimitives, 0, vec3(0.0f, 0.0f, -1000.0f), primitives);
 	nPrimitives += loadedPrimitives;
-	loadedPrimitives = LoadObj("assets/earth/earth.obj", moon, Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0), nPrimitives, nPrimitives-nCreatedPrimitives, vec3(-1000.0f, 0.0f, -2000.0f), primitives);
+	loadedPrimitives = LoadObj("assets/earth/earth.obj", moon, Material(Material::MICROFACETS, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0), nPrimitives, nPrimitives-nCreatedPrimitives, vec3(-1000.0f, 0.0f, -2000.0f), primitives);
 	nPrimitives += loadedPrimitives;
-	loadedPrimitives = LoadObj("assets/earth/earth.obj", nullptr, Material(Material::MIRROR, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0), nPrimitives, nPrimitives-nCreatedPrimitives, vec3(1000.0f, 0.0f, -2000.0f), primitives);
+	loadedPrimitives = LoadObj("assets/earth/earth.obj", nullptr, Material(Material::MIRROR, vec3(1.000, 1.000, 1.000), 0.0f, 1.0f, 0.1f, 20.0), nPrimitives, nPrimitives-nCreatedPrimitives, vec3(1000.0f, 0.0f, -2000.0f), primitives);
 	nPrimitives += loadedPrimitives;
 	int offset = nPrimitives - nCreatedPrimitives;
 	//loadedPrimitives = LoadObj("assets/earth.obj", nullptr, nPrimitives, loadedPrimitives, vec3(1000.0f, 0.0f, -2000.0f), primitives);
@@ -170,30 +162,11 @@ void Scene::Initialize() {
 
 	// floor
 	primitives[offset] = new Triangle(vec3(-2000, -400.0f, -4000), vec3(-2000, -400.0f, -0), vec3(2000, -400.0f, -4000),
-									  Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 100.0));
+									  Material(Material::MICROFACETS, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0));
 	primitives[offset++]->SetTexture(grid);
 	primitives[offset] = new Triangle(vec3(2000, -400.0f, -0), vec3(2000, -400.0f, -4000), vec3(-2000, -400.0f, -0),
-									  Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 100.0));
+									  Material(Material::MICROFACETS, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0));
 	primitives[offset++]->SetTexture(grid);
-	/*primitives[offset] = new Triangle(vec3(-500.0f, -400.0f, -1500.0f), vec3(-500.0f, -400.0f, -500.0f), vec3(500.0f, -400.0f, -1500.0f),
-	Material(Material::MICROFACETS, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 200.0));
-	primitives[offset++]->SetTexture(grid);
-	primitives[offset] = new Triangle(vec3(500.0f, -400.0f, -500.0f), vec3(500.0f, -400.0f, -1500.0f), vec3(-500.0f, -400.0f, -500.0f),
-	Material(Material::MICROFACETS, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 200.0));
-	primitives[offset++]->SetTexture(grid);*/
-	/*primitives[offset] = new Triangle(vec3(500, -400.0f, -2000), vec3(500, -400.0f, -1000), vec3(1500.0f, -400.0f, -2000), Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0));
-	primitives[offset++]->SetTexture(grid);
-	primitives[offset] = new Triangle(vec3(1500, -400.0f, -1000), vec3(1500, -400.0f, -2000), vec3(500, -400.0f, -1000), Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0));
-	primitives[offset++]->SetTexture(grid);
-
-	primitives[offset] = new Triangle(vec3(-1500, -400.0f, -2000), vec3(-1500, -400.0f, -1000), vec3(-500, -400.0f, -2000), Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0));
-	primitives[offset++]->SetTexture(grid);
-	primitives[offset] = new Triangle(vec3(-500, -400.0f, -1000), vec3(-500, -400.0f, -2000), vec3(-1500, -400.0f, -1000), Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0));
-	primitives[offset++]->SetTexture(grid);*/
-
-	//primitives[offset++] = new Triangle(vec3(-510.0f, 500.0f, -1500.0f), vec3(-510.0f, -400.0f, -1500.0f), vec3(510.0f, 500.0f, -1500.0f), Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0));
-	//primitives[offset++] = new Triangle(vec3(515.0f, -400.0f, -1500.0f), vec3(515.0f, 500.0f, -1500.0f), vec3(-510.0f, -400.0f, -1500.0f), Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0));
-
 	// lights
 	primitives[offset] = new Triangle(vec3(50.0f, 500.0f, -700.0f), vec3(-50.0f, 500.0f, -500.0f), vec3(-50.0f, 500.0f, -700.0f), Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0));
 	primitives[offset]->lightType = Primitive::LightType::INF;
@@ -203,12 +176,6 @@ void Scene::Initialize() {
 	primitives[offset]->lightType = Primitive::LightType::INF;
 	primitives[offset++]->intensity = 10.0f;
 
-	/*primitives[offset] = new Triangle(vec3(-900.0f, -390.0f, -1800), vec3(-950.0f, -300.0f, -1700), vec3(-1000.0f, -390.0f, -1800), Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0));
-	primitives[offset]->lightType = Primitive::LightType::INF;
-	primitives[offset++]->intensity = 10.0f;
-	primitives[offset] = new Triangle(vec3(-1000.0f, -390.0f, -1700), vec3(-900, -300.0f, -1800), vec3(-900, -390.0f, -1700), Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0));
-	primitives[offset]->lightType = Primitive::LightType::INF;
-	primitives[offset++]->intensity = 10.0f;*/
 	primitives[offset] = new Triangle(vec3(-900.0f, 500.0f, -1800), vec3(-1000.0f, 500.0f, -1600), vec3(-1000.0f, 500.0f, -1800), Material(Material::DIFFUSE, vec3(1.000, 0.980, 0.804), 0.0f, 1.0f, 0.1f, 20.0));
 	primitives[offset]->lightType = Primitive::LightType::INF;
 	primitives[offset++]->intensity = 1.0f;

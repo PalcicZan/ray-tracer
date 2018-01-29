@@ -18,10 +18,13 @@
 #define UNIFORM 0
 #define COSINE 1
 
-#define NO_TRICKS -1
+// variance reductions
 #define SIMPLE 0
 #define NEE	1
-#define COMBINE 2
+#define MIS 2
+#define MISPACKED 3
+#define MISTEST 4
+#define COMBINED 5
 
 // BVH TRAVERSAL options
 #define NORMAL 0
@@ -35,12 +38,17 @@
 
 
 // sceene
+#define TEST_SCENE 3
 #define NICE_SCENE 4
 
 // Ref
-#define R_REF 0.115605//0.123614 
+/*#define R_REF 0.115605
 #define G_REF 0.111627
-#define B_REF 0.090285
+#define B_REF 0.090285*/
+
+#define R_REF 0.151908
+#define G_REF 0.146958
+#define B_REF 0.117965
 
 #define R_REF_H 0.120952
 #define G_REF_H 0.119472
@@ -62,16 +70,23 @@
 #define MEASURE_PERFORMANCE 1
 #define SHOW_INFO 1
 
+// path tracing
+#define PATH_TRACER MISPACKED
+#define VARIANCE_REDUCTION COSINE
+#define N_BOUNCES 8
+#define RUSSIAN_ROULETTE 1
+
 // postprocessing
 #define GAMMA_CORRECTION SQRT
 #define CLAMP_FIREFLIES 0
-#define MAX_MAGNITUDE 1.0f
+#define MAX_MAGNITUDE 10.0f
 
-// path tracing
-#define PATH_TRACER COMBINE
-#define VARIANCE_REDUCTION COSINE
-#define N_BOUNCES 8
-#define RUSSIAN_ROULETTE 0
+// scenes
+#if PATH_TRACER == SIMPLE || PATH_TRACER == MISTEST
+#define SCENE TEST_SCENE
+#else
+#define SCENE NICE_SCENE
+#endif
 
 // bvh
 #define USE_BVH 1
@@ -86,11 +101,8 @@
 
 // camera
 #define PRIMARY_SAMPLES 1 // currently not supported
+#define STRATUM_WIDTH 4
 
-// scene
-// 2 loads simple obj - tree
-// 3 loads simple obj - earths
-#define SIMPLE_SCENE NICE_SCENE
 
 // SIMD
 #define CACHE_LINE 16

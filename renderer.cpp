@@ -77,8 +77,6 @@ void Renderer::Postprocess(int x, int y, vec3 &color) {
 #if GAMMA_CORRECTION == SQRT
 	postColor = vec3(sqrtf(color.x), sqrtf(color.y), sqrtf(color.z));
 	//screen->Plot(x, y, SetPixelColor(postColor); // sqrt approximation
-#elif GAMMA_CORRECTION == SRGB
-	postColor = vec3(sRGB(color.x), sRGB(color.y), sRGB(color.z)); // sRGB
 #elif GAMMA_CORRECTION == WITHOUT
 	postColor = color;
 #endif
@@ -157,12 +155,18 @@ inline vec3 Renderer::GetDirectIllumination(vec3 I, vec3 N, int& intersectionCou
 	return color;
 }
 
-
 /*===================================================*/
 /*|	Sampling - Path tracer							|*/
 /*===================================================*/
-
 inline float Xor32(uint& seed) { seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5; return seed * 2.3283064365387e-10f; }
+void randStrata(float &r0, float &r1, int &idx, uint &seed) {
+	float stratumX = (idx % STRATUM_WIDTH) * 1.0f / STRATUM_WIDTH;
+	float stratumY = (idx / STRATUM_WIDTH) * 1.0f / STRATUM_WIDTH;
+	r0 = Xor32(seed) * 1.0f / STRATUM_WIDTH;
+	r1 = Xor32(seed) * 1.0f / STRATUM_WIDTH;
+	r0 += stratumX;
+	r1 += stratumY;
+}
 
 void Renderer::UpdateSeed() {
 	seed = (*nSample);// * 100767001) * 101595101;
@@ -171,6 +175,7 @@ void Renderer::UpdateSeed() {
 inline vec3 Renderer::UniformDiffuseReflection(vec3 N, uint &seed) {
 	const float r1 = Xor32(seed);
 	const float r2 = Xor32(seed);
+	//randStrata(r1, r2);
 	// hemisphere in direction of N
 	vec3 b3 = N;
 	vec3 b1;
@@ -213,19 +218,17 @@ inline vec3 Renderer::BRDFWeightedReflection(vec3 N, Ray ray, Primitive* hitPrim
 	// hemisphere in direction of N
 	vec3 b3 = N;
 	vec3 b1;
-	if (fabs(b3.x) > fabs(b3.y)) b1 = vec3(b3.z, 0.0f, -b3.x);
-	else b1 = vec3(0.0f, -b3.z, b3.y);
-	//vec3 W = (abs(b3.x) > 0.99) ? vec3(0.0f, 1.0f, 0.0f) : vec3(1.0f, 0.0f, 0.0f);
-	//b1 = cross(N, W);
+	//if (fabs(b3.x) > fabs(b3.y)) b1 = vec3(b3.z, 0.0f, -b3.x);
+	//else b1 = vec3(0.0f, -b3.z, b3.y);
+	vec3 W = (abs(b3.x) > 0.99) ? vec3(0.0f, 1.0f, 0.0f) : vec3(1.0f, 0.0f, 0.0f);
+	b1 = cross(N, W);
 	b1.normalize();
 	vec3 b2 = cross(b1, b3);
 
-	float cosTheta = pow(r1, 1.0f / (hitPrimitive->material.glossines + 1));
+	float cosTheta = pow(r1, 1.0f / (hitPrimitive->material.glossines + 2));
 	float sinTheta = sqrt(max(0.0f, 1.0f - cosTheta * cosTheta));
-	float phi = 2.0f * M_PI * r2;
-	vec3 wh = normalize(sinTheta * cos(phi) * b1 +
-						sinTheta * sin(phi) * b2 +
-						cosTheta * b3);
+	float phi = 2.0f * PI * r2;
+	vec3 wh = normalize(sinTheta * cos(phi) * b1 + sinTheta * sin(phi) * b2 + cosTheta * b3);
 	if (dot(-ray.direction, N) <= 0.0f) wh = vec3(0.0f);
 	return wh;
 }
@@ -276,7 +279,7 @@ vec3 Renderer::GetBRDF(Primitive* hitPrimitive, vec3 &N, Ray &ray, vec3 &L, floa
 	float NHV = (2.0f*NH) / VH;
 	// geometric term
 	float G = min(1.0f, min(NHV*NV, NHV*NL));
-	pdf = (alpha + 2.0f) * INV2PI * pow(NH, alpha + 1.0f)*sqrtf(1.0f - (NH*NH));
+	pdf = (alpha + 2.0f) * pow(NH, alpha + 1.0f)*sqrtf(1.0f - (NH*NH));
 	pdf /= (4.0f*VH);
 	// fresnel term
 	F = specularRGB + (vec3(1.0f) - specularRGB)*(1.0f - pow(dot(L, H), 5));
@@ -298,22 +301,22 @@ void Renderer::SampleMISPacket(RayPacket &rayPacket, vec3 *colors, int depth, fl
 	bvh->pool[0].PartitionTraverse(rayPacket, *bvh, hitIndices, intersectionCounter, depthCounter);
 #endif
 
+	vec3  I, N, R, BRDF, pN;
+	bool showLight = false;
+	// direct illumination
+	float A;
+	vec3 Nl, emission;
+	Ray lightRay;
 	for (int i = 0; i < PACKET_SIZE; i++) {
 		Ray ray = rayPacket.rays[i];
 		if ((hitIndices[i] - 1) == -1) {
 			colors[i] = scene->GetBackground(ray.direction);
 			continue;
 		}
-		vec3 threshold = BLACK;
+		vec3 energy = BLACK;
 		vec3 weight = vec3(1.0f, 1.0f, 1.0f);
-		vec3  I, N, R, BRDF, pN;
-		bool showLight = false;
 		float u = rayPacket.u[i]; v = rayPacket.v[i]; 
 		float NR, hemiPDF = 1.0f, lightPDF = 0.0f, misPDF;
-		// direct illumination
-		float A;
-		vec3 Nl, emission;
-		Ray lightRay;
 		vec3 pWeight = vec3(1.0f, 1.0f, 1.0f);
 		float pHemiPDF = 1.0f;
 		Primitive *hitPrimitive = nullptr, *lightPrimitive = nullptr;
@@ -327,7 +330,6 @@ void Renderer::SampleMISPacket(RayPacket &rayPacket, vec3 *colors, int depth, fl
 
 		// main bounce loop
 		for (int bounce = 0; bounce < N_BOUNCES; bounce++) {
-		
 			int depthCounter = 0;
 			if (bounce) {
 				hitPrimitive = nullptr;
@@ -335,7 +337,7 @@ void Renderer::SampleMISPacket(RayPacket &rayPacket, vec3 *colors, int depth, fl
 			
 				if (hitPrimitive == nullptr) {
 					if (!bounce || firstMirror) {
-						threshold = scene->GetBackground(ray.direction);
+						energy = scene->GetBackground(ray.direction);
 					}
 					break;
 				}
@@ -345,66 +347,68 @@ void Renderer::SampleMISPacket(RayPacket &rayPacket, vec3 *colors, int depth, fl
 			firstMirror = false;
 			I = ray.origin + ray.direction * (ray.dist - EPSILON);
 			N = ((Triangle*)hitPrimitive)->GetSmoothNormal(I, u, v);
+			vec3 hitPrimitiveColor = hitPrimitive->GetColor(I, u, v);
 
 			// light hit
 			if (hitPrimitive->lightType != Primitive::LightType::NONE) {
 				if (dot(ray.direction, N) < EPSILON)
 					if (showLight) {
 						weight *= (pWeight / (pHemiPDF));
-						threshold += weight * hitPrimitive->intensity * hitPrimitive->material.color;
+						energy += weight * hitPrimitive->intensity * hitPrimitive->material.color;
 					} else {
 						float NLM = dot(N, -ray.direction);
 						float A = hitPrimitive->area;
 						if (NLM > 0.0) {
 							weight *= (pWeight / (pHemiPDF + ((ray.dist * ray.dist) / (NLM * A))));
-							threshold += weight * hitPrimitive->intensity * hitPrimitive->material.color;
+							energy += weight * hitPrimitive->intensity * hitPrimitive->material.color;
 						} else {
 							weight *= (pWeight / pHemiPDF);
-							threshold += weight * hitPrimitive->intensity * hitPrimitive->material.color;
+							energy += weight * hitPrimitive->intensity * hitPrimitive->material.color;
 						}
 					}
 				break;
 			}
-			showLight = false;
-			if (dot(ray.direction, N) > EPSILON) {
-				N = -N;
-			}
-			weight *= pWeight / hemiPDF;
-
-#if VARIANCE_REDUCTION == COSINE
-			R = CosineWeightedDiffuseReflection(N, seed);
-			NR = dot(N, R);
-			hemiPDF = NR * INVPI;
-#else
-			R = UniformDiffuseReflection(N, seed);
-			NR = dot(N, R);
-			hemiPDF = INV2PI;
-#endif
-
-			bool isMicrofacet = hitPrimitive->material.type == Material::MICROFACETS;
-			vec3 hitPrimitiveColor = hitPrimitive->GetColor(I, u, v);
-			float brdfPdf = 0.0f;
-			if (isMicrofacet) {
-				vec3 F = vec3(0.0f);
-				BRDF = GetBRDF(hitPrimitive, N, ray, R, brdfPdf, F, seed);
-				BRDF *= (hitPrimitiveColor * (vec3(1.0f) - F) + F * hitPrimitiveColor);
-				pWeight = NR * BRDF;
-				pHemiPDF = NR * INVPI;
-			} else {
-				BRDF = hitPrimitiveColor * INVPI;
-				pWeight = NR * BRDF;
-				pHemiPDF = NR * INVPI;
-			}
-
 			// pure specular
 			if (hitPrimitive->material.type == Material::MIRROR) {
 				float DN = dot(ray.direction, N);
 				Reflect(ray, I, N, DN);
 				firstMirror = !bounce;
+				weight *= hitPrimitiveColor;
 				//pHemiPDF = 1.0f; pWeight = 1.0f;
 				showLight = true;
 				continue;
 			}
+			showLight = false;
+
+			if (dot(ray.direction, N) > EPSILON) {
+				N = -N;
+			}
+			weight *= pWeight / hemiPDF;
+
+			bool isMicrofacet = hitPrimitive->material.type == Material::MICROFACETS;
+		
+			if (isMicrofacet) {
+				float brdfPDF;
+				vec3 F = vec3(0.0f);
+				R = BRDFWeightedReflection(N, ray, hitPrimitive, seed);
+				BRDF = hitPrimitiveColor * GetBRDF(hitPrimitive, N, ray, R, brdfPDF, F, seed);
+				NR = dot(N, R);
+				hemiPDF = brdfPDF; 
+			} else {
+#if VARIANCE_REDUCTION == COSINE
+				R = CosineWeightedDiffuseReflection(N, seed);
+				NR = dot(N, R);
+				hemiPDF = NR * INVPI;
+#else
+				R = UniformDiffuseReflection(N, seed);
+				NR = dot(N, R);
+				hemiPDF = INV2PI;
+#endif
+				BRDF = hitPrimitiveColor * INVPI;
+			}
+
+			pHemiPDF = hemiPDF;
+			pWeight = NR * BRDF;
 
 			// sample direct illumination
 			lightRay.origin = I;
@@ -427,7 +431,7 @@ void Renderer::SampleMISPacket(RayPacket &rayPacket, vec3 *colors, int depth, fl
 						BRDF = GetBRDF(hitPrimitive, N, ray, lightRay.direction, brdfPdf, F, seed);
 						BRDF *= (hitPrimitiveColor * (vec3(1.0f) - F) + F * hitPrimitiveColor);
 					}
-					threshold += weight * (NL / misPDF) * emission * BRDF;
+					energy += weight * (NL / misPDF) * emission * BRDF;
 				}
 			}
 
@@ -439,7 +443,7 @@ void Renderer::SampleMISPacket(RayPacket &rayPacket, vec3 *colors, int depth, fl
 			if (bounce > 3) {
 				float p = min(1.0f, max(max(weight.x, weight.y), weight.z));
 				if (Xor32(seedRR) > p) {
-					return threshold;
+					break;
 				}
 				weight *= (1.0f / p);
 			}
@@ -447,19 +451,19 @@ void Renderer::SampleMISPacket(RayPacket &rayPacket, vec3 *colors, int depth, fl
 		}
 
 #if CLAMP_FIREFLIES
-		float tLen = threshold.length();
+		float tLen = energy.length();
 		if (tLen > MAX_MAGNITUDE) {
-			threshold /= tLen;
-			threshold *= MAX_MAGNITUDE;
+			energy /= tLen;
+			energy *= MAX_MAGNITUDE;
 		}
 #endif
-		colors[i] = threshold;
+		colors[i] = energy;
 	}
 }
 
 vec3 Renderer::SampleMIS(Ray& ray, int&intersectionCounter, uint &seed) {
 
-	vec3 threshold = BLACK;
+	vec3 energy = BLACK;
 	vec3 weight = vec3(1.0f, 1.0f, 1.0f);
 	vec3  I, N, R, BRDF, pN;
 	bool showLight = true;
@@ -480,13 +484,13 @@ vec3 Renderer::SampleMIS(Ray& ray, int&intersectionCounter, uint &seed) {
 		bvh->pool[0].Traverse(ray, *bvh, &hitPrimitive, intersectionCounter, depthCounter);
 		
 		if (hitPrimitive == nullptr) {
+#if SCENE != TEST_SCENE
+			// background does not contribute light
 			if (!bounce || firstMirror) {
-				//weight *= (pWeight / (pHemiPDF));
-				//threshold += weight * scene->GetBackground(ray.direction);
-				//weight *= (pWeight / (pHemiPDF));
-				threshold = scene->GetBackground(ray.direction);
-			}				
-			return threshold;
+				energy = scene->GetBackground(ray.direction);
+			}		
+#endif
+			break;
 		}
 		firstMirror = false;
 
@@ -499,19 +503,19 @@ vec3 Renderer::SampleMIS(Ray& ray, int&intersectionCounter, uint &seed) {
 			if(dot(ray.direction, N) < EPSILON)
 			if (showLight) {
 				weight *= (pWeight / (pHemiPDF));
-				threshold += weight * hitPrimitive->intensity * hitPrimitive->material.color;
+				energy += weight * hitPrimitive->intensity * hitPrimitive->material.color;
 			} else {
 				float NLM = dot(N, -ray.direction);
 				float A = hitPrimitive->area;
 				if (NLM > 0.0){
 					weight *= (pWeight / (pHemiPDF + ((ray.dist * ray.dist) / (NLM * A))));
-					threshold += weight * hitPrimitive->intensity * hitPrimitive->material.color;
+					energy += weight * hitPrimitive->intensity * hitPrimitive->material.color;
 				} else {
 					weight *= (pWeight / pHemiPDF);
-					threshold += weight * hitPrimitive->intensity * hitPrimitive->material.color; 
+					energy += weight * hitPrimitive->intensity * hitPrimitive->material.color; 
 				}
 			}
-			return threshold;
+			break;
 		}
 		showLight = false;
 		if (dot(ray.direction, N) > EPSILON) {
@@ -519,45 +523,40 @@ vec3 Renderer::SampleMIS(Ray& ray, int&intersectionCounter, uint &seed) {
 		}
 		weight *= pWeight / hemiPDF;
 
-#if VARIANCE_REDUCTION == COSINE
-		R = CosineWeightedDiffuseReflection(N, seed);
-		NR = dot(N, R);
-		hemiPDF = NR * INVPI;
-#else
-		R = UniformDiffuseReflection(N, seed);
-		NR = dot(N, R);
-		hemiPDF = INV2PI;
-#endif
-
-		bool isMicrofacet = hitPrimitive->material.type == Material::MICROFACETS;
 		vec3 hitPrimitiveColor = hitPrimitive->GetColor(I, u, v);
-		float brdfPdf = 0.0f;
-		if (isMicrofacet) {
-			//BRDFWeightedReflection(N, hitPrimitive, seed);
-			//vec3 H = BRDFWeightedReflection(N, ray, hitPrimitive, seed);
-			//R = ray.direction - 2 * (dot(-ray.direction, H))*H;
-			vec3 F = vec3(0.0f);
-			BRDF = GetBRDF(hitPrimitive, N, ray, R, brdfPdf, F, seed);
-			BRDF *= (hitPrimitiveColor * (vec3(1.0f) - F) + F * hitPrimitiveColor);
-			pWeight = NR * BRDF;
-			pHemiPDF = NR * INVPI;
-			//hemiPDF += brdfPdf;
-		} else {
-			BRDF = hitPrimitiveColor * INVPI;
-			pWeight = NR * BRDF;
-			pHemiPDF = NR * INVPI;
-		}
-
 		// pure specular
 		if (hitPrimitive->material.type == Material::MIRROR) {
 			float DN = dot(ray.direction, N);
-			Reflect(ray, I, N, DN); 
+			Reflect(ray, I, N, DN);
+			weight *= hitPrimitiveColor;
 			firstMirror = !bounce;
-			//pHemiPDF = 1.0f; pWeight = 1.0f;
 			showLight = true;
 			continue;
 		}
 
+
+		bool isMicrofacet = hitPrimitive->material.type == Material::MICROFACETS;
+		float brdfPDF = 0.0f;
+		if (isMicrofacet) {
+			vec3 F = vec3(0.0f);
+			R = BRDFWeightedReflection(N, ray, hitPrimitive, seed);
+			BRDF = hitPrimitiveColor * GetBRDF(hitPrimitive, N, ray, R, brdfPDF, F, seed); 
+			NR = dot(N, R);
+			hemiPDF = brdfPDF; //NR * INVPI;
+		} else {
+#if VARIANCE_REDUCTION == COSINE
+			R = CosineWeightedDiffuseReflection(N, seed);
+			NR = dot(N, R);
+			hemiPDF = NR * INVPI;
+#else
+			R = UniformDiffuseReflection(N, seed);
+			NR = dot(N, R);
+			hemiPDF = INV2PI;
+#endif
+			BRDF = hitPrimitiveColor * INVPI;
+		}
+		pHemiPDF = hemiPDF;
+		pWeight = NR * BRDF;
 		// sample direct illumination
 		lightRay.origin = I;
 		RandomPointOnLight(lightRay, Nl, emission, A, seed);
@@ -573,13 +572,13 @@ vec3 Renderer::SampleMIS(Ray& ray, int&intersectionCounter, uint &seed) {
 			if (lightPrimitive == nullptr) {
 				lightPDF = distLight/(NLM * A);
 				misPDF = (lightPDF + NL/PI);
-				float brdfPdf = 0.0f;
 				if (isMicrofacet) {
+					float brdfPDF = 0.0f;
 					vec3 F = vec3(0.0f);
-					BRDF = GetBRDF(hitPrimitive, N, ray, lightRay.direction, brdfPdf, F, seed);
-					BRDF *= (hitPrimitiveColor * (vec3(1.0f) - F) + F * hitPrimitiveColor);
+					BRDF = hitPrimitiveColor * GetBRDF(hitPrimitive, N, ray, lightRay.direction, brdfPDF, F, seed);
 				}
-				threshold += weight * (NL / misPDF) * emission * BRDF;
+				//misPDF += brdfPDF;
+				energy += weight * (NL / misPDF) * emission * BRDF;
 			}
 		}
 
@@ -592,7 +591,7 @@ vec3 Renderer::SampleMIS(Ray& ray, int&intersectionCounter, uint &seed) {
 		if (bounce > 3) {
 			float p = min(1.0f, max(max(weight.x, weight.y), weight.z));
 			if (Xor32(seedRR) > p) {
-				return threshold;
+				break;
 			}
 			weight *= (1.0f / p);
 		}
@@ -600,23 +599,23 @@ vec3 Renderer::SampleMIS(Ray& ray, int&intersectionCounter, uint &seed) {
 	}
 
 #if CLAMP_FIREFLIES
-	float tLen = threshold.length();
+	float tLen = energy.length();
 	if (tLen > MAX_MAGNITUDE) {
-		threshold /= tLen;
-		threshold *= MAX_MAGNITUDE;
+		energy /= tLen;
+		energy *= MAX_MAGNITUDE;
 	}
 #endif
 
-	return threshold;
+	return energy;
 }
 
 vec3 Renderer::SampleNEE(Ray& ray, int&intersectionCounter) {
 
-	vec3 threshold = BLACK;
+	vec3 energy = BLACK;
 	vec3 weight = vec3(1.0f, 1.0f, 1.0f);
 	vec3  I, N, R, BRDF;
 	bool showLight = true;
-	float u, v, NR, PDF;
+	float u, v, NR, hemiPDF;
 	// direct illumination
 	float A;
 	vec3 Nl, emission;
@@ -626,47 +625,67 @@ vec3 Renderer::SampleNEE(Ray& ray, int&intersectionCounter) {
 	for (int bounce = 0; bounce < N_BOUNCES; bounce++) {
 
 		// intersect
-		Primitive *hitPrimitive = nullptr;
+		Primitive *hitPrimitive = nullptr, *lightPrimitive = nullptr;
 		int depthCounter = 0;
 		bvh->pool[0].Traverse(ray, *bvh, &hitPrimitive, intersectionCounter, depthCounter);
 
 		if (hitPrimitive == nullptr) {
+#if SCENE != TEST_SCENE
 			if (!bounce || firstMirror) {
-				threshold = scene->GetBackground(ray.direction);
+				energy = scene->GetBackground(ray.direction);
 			}
-			return threshold;
+#endif
+			break;
 		}
 
-		if (hitPrimitive->lightType != Primitive::LightType::NONE) {
-			if (showLight) {
-				threshold += weight * hitPrimitive->intensity * hitPrimitive->material.color;
-			}
-			return threshold;
-		}
-		showLight = false;
-		firstMirror = false;
 		u = hitPrimitive->hitU, v = hitPrimitive->hitV;
 		I = ray.origin + ray.direction * (ray.dist);
 		N = ((Triangle*)hitPrimitive)->GetSmoothNormal(I, u, v);
+		vec3 hitPrimitiveColor = hitPrimitive->GetColor(I, u, v);
 
-		BRDF = hitPrimitive->GetColor(I, u, v) * INVPI;
-
-#if VARIANCE_REDUCTION == COSINE
-		R = CosineWeightedDiffuseReflection(N, seed);
-		NR = dot(N, R);
-		PDF = NR * INVPI;
-#else
-		R = UniformDiffuseReflection(N, seed);
-		NR = dot(N, R);
-		PDF = INV2PI;
-#endif
+		if (hitPrimitive->lightType != Primitive::LightType::NONE) {
+			if (dot(ray.direction, N) < EPSILON)
+			if (showLight) {
+				energy += weight * hitPrimitive->intensity * hitPrimitive->material.color;
+			}
+			break;
+		}	
+		
+		showLight = false;
+		if (dot(ray.direction, N) > EPSILON) {
+			N = -N;
+		}
 
 		if (hitPrimitive->material.type == Material::MIRROR) {
 			float DN = dot(ray.direction, N);
 			Reflect(ray, I, N, DN);
-			//weight *= dot(ray.direction,N)*BRDF;
+			weight *= hitPrimitiveColor;
+			firstMirror = !bounce;
 			showLight = true;
 			continue;
+		}
+		firstMirror = false;
+
+
+		bool isMicrofacet = hitPrimitive->material.type == Material::MICROFACETS;
+		if (isMicrofacet) {
+			float brdfPDF = 0.0f;
+			vec3 F = vec3(0.0f);
+			R = BRDFWeightedReflection(N, ray, hitPrimitive, seed);
+			BRDF = hitPrimitiveColor * GetBRDF(hitPrimitive, N, ray, R, brdfPDF, F, seed);
+			NR = dot(N, R);
+			hemiPDF = brdfPDF; //NR * INVPI;
+		} else {
+#if VARIANCE_REDUCTION == COSINE
+			R = CosineWeightedDiffuseReflection(N, seed);
+			NR = dot(N, R);
+			hemiPDF = NR * INVPI;
+#else
+			R = UniformDiffuseReflection(N, seed);
+			NR = dot(N, R);
+			hemiPDF = INV2PI;
+#endif
+			BRDF = hitPrimitiveColor * INVPI;
 		}
 
 		// sample direct illumination
@@ -678,21 +697,28 @@ vec3 Renderer::SampleNEE(Ray& ray, int&intersectionCounter) {
 		if (NL > 0.0f && NLM > 0.0f) {
 			float distLight = (lightRay.dist * lightRay.dist);
 			lightRay.dist -= EPSILON * 2;
-			hitPrimitive = nullptr;
-			bvh->pool[0].TraverseAny(lightRay, *bvh, &hitPrimitive, intersectionCounter, depthCounter);
-			if (hitPrimitive == nullptr) {
-				float solidAngle = (NLM * A) / distLight;
-				threshold += weight * NL * emission * solidAngle * BRDF;
+			lightPrimitive = nullptr;
+			bvh->pool[0].TraverseAny(lightRay, *bvh, &lightPrimitive, intersectionCounter, depthCounter);
+			if (lightPrimitive == nullptr) {
+				//float solidAngle = (NLM * A) / distLight;
+				float lightPDF = distLight / (NLM * A);
+				vec3 LBRDF = BRDF;
+				if (isMicrofacet) {
+					float brdfPDF = 0.0f;
+					vec3 F = vec3(0.0f);
+					LBRDF = hitPrimitiveColor * GetBRDF(hitPrimitive, N, ray, lightRay.direction, brdfPDF, F, seed);
+				}
+				energy += weight * (NL / lightPDF) * emission * LBRDF;
 			}
 		}
 
 #if RUSSIAN_ROULETTE
 		if (bounce > 3) {
-			float p = min(1.0f, max(max(threshold.x, threshold.y), threshold.z));
+			float p = min(1.0f, max(max(weight.x, weight.y), weight.z));
 			if (Xor32(seedRR) > p) {
-				return threshold;
+				break;
 			}
-			threshold *= (1.0f / p);
+			weight *= (1.0f / p);
 		}
 #endif
 
@@ -700,11 +726,20 @@ vec3 Renderer::SampleNEE(Ray& ray, int&intersectionCounter) {
 		ray.origin = I;
 		ray.dist = INFINITY;
 		ray.direction = R;
-		weight *= (NR / PDF) * BRDF;
+		weight *= (NR / hemiPDF) * BRDF;
 	}
-	return threshold;
+
+#if CLAMP_FIREFLIES
+	float tLen = energy.length();
+	if (tLen > MAX_MAGNITUDE) {
+		energy /= tLen;
+		energy *= MAX_MAGNITUDE;
+	}
+#endif
+	return energy;
 }
 
+/*Deprecated*/
 vec3 Renderer::SampleNEE(Ray& ray, int depth, float& dist, int& intersectionCounter) {
 	if (depth > N_BOUNCES) return BLACK;
 	Primitive *hitPrimitive = nullptr;
@@ -775,8 +810,8 @@ vec3 Renderer::SampleNEE(Ray& ray, int depth, float& dist, int& intersectionCoun
 	ray.dist = INFINITY;
 	ray.direction = R;
 	vec3 Ei = SampleNEE(ray, 1, dist, intersectionCounter);
-	vec3 threshold = BRDF * Ei  * (NR / PDF) + Ld;
-	return threshold;
+	vec3 energy = BRDF * Ei  * (NR / PDF) + Ld;
+	return energy;
 }
 
 vec3 Renderer::Sample(Ray& ray, int depth, float& dist, int& intersectionCounter) {
@@ -1204,35 +1239,32 @@ void RenderParallel::Main() {
 	intersectionCounter = 0;
 	accColor = vec3(0.0f);
 	float dist = 0;
-#if TRAVERSAL == NORMAL
+#if PATH_TRACER != MISPACKED || TRAVERSAL == NORMAL
 	Ray primaryRay;
 	UpdateSeed();
 	primaryRay.type = Ray::PRIMARY;
 	for (int y = fromY; y < toY; y++) {
 		for (int x = 0; x < SCRWIDTH; x++) {
+			vec3 color;
 			//if(renderer.moving) UpdateSeed();
 			renderer.camera->CastRay(primaryRay, x, y);
-			//vec3 color = renderer.Trace(primaryRay, 0, dist, intersectionCounter);
 #if PATH_TRACER == NEE
-			vec3 color = renderer.SampleNEE(primaryRay, 0, dist, intersectionCounter);
+			color = renderer.SampleNEE(primaryRay, intersectionCounter);
+			//color = renderer.SampleNEE(primaryRay,0, dist, intersectionCounter);
 #elif PATH_TRACER == SIMPLE
-			vec3 color = renderer.Sample(primaryRay, 0, dist, intersectionCounter);
+			color = renderer.Sample(primaryRay, 0, dist, intersectionCounter);
 #elif PATH_TRACER == MIS
-			vec3 color = renderer.SampleMIS(primaryRay, intersectionCounter, seed);
-#elif PATH_TRACER == COMBINE
-			vec3 color;
-			if (x < SCRWIDTH) {
+			color = renderer.SampleMIS(primaryRay, intersectionCounter, seed);
+#elif PATH_TRACER == COMBINED || PATH_TRACER == MISTEST
+			if (x < SCRWIDTH / 2) {
 				//color = renderer.SampleNEE(primaryRay, intersectionCounter);
-				//color = renderer.SampleNEE(primaryRay, 0, dist, intersectionCounter);
 				//color = renderer.Sample(primaryRay, 0, dist, intersectionCounter);
 				color = renderer.SampleMIS(primaryRay, intersectionCounter, seed);
 			} else {
 				//color = renderer.SampleNEE(primaryRay, intersectionCounter);
 				color = renderer.SampleNEE(primaryRay, intersectionCounter);
-				//color = renderer.SampleNEE(primaryRay, 0, dist, intersectionCounter);
 				//color = renderer.Sample(primaryRay, 0, dist, intersectionCounter);
 			}
-
 #endif
 			renderer.Postprocess(x, y, color);
 			accColor += color;

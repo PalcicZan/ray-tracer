@@ -31,18 +31,13 @@ public:
 	vec3 UniformDiffuseReflection(vec3 N, uint &seed);
 	vec3 CosineWeightedDiffuseReflection(vec3 N, uint &seed);
 	vec3 BRDFWeightedReflection(vec3 N, Ray ray, Primitive * hitPrimitive, uint & seed);
-	vec3 BRDFWeightedReflection(vec3 N, Primitive * hitPrimitive, uint & seed);
 	void RandomPointOnLight(Ray & lightRay, vec3 & Nl, vec3 & emission, float & A, uint &seed);
 	vec3 GetBRDF(Primitive * hitPrimitive, vec3 & N, Ray & ray, vec3 & L, float & pdf, vec3 & F, uint & seed);
 	void SampleMISPacket(RayPacket & rayPacket, vec3 * colors, int depth, float & dist, int & intersectionCounter);
-	vec3 GetBRDF(Primitive * hitPrimitive, vec3 & N, Ray & ray, vec3 & L, float & pdf, uint & seed);
-	vec3 GetBRDF(Primitive * hitPrimitive, vec3 & N, Ray & ray, vec3 & L, float & pdf);
-	vec3 GetBRDF(Primitive * hitPrimitive, vec3 & N, Ray & ray, vec3 & L);
 	void UpdateSeed();
 	vec3 SampleMIS(Ray & ray, int & intersectionCounter, uint &seed);
 	vec3 SampleNEE(Ray & ray, int & intersectionCounter);
 	vec3 SampleNEE(Ray & ray, int depth, float & dist, int & intersectionCounter);
-	vec3 SampleDirect(Ray & ray, int depth, float & dist, int & intersectionCounter);
 	vec3 Sample(Ray & ray, int depth, float & dist, int & intersectionCounter);
 	// toggle options
 	int toggleRenderView = 0;
